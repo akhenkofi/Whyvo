@@ -1,0 +1,22 @@
+{
+  "name": "FarmSavior",
+  "short_name": "FarmSavior",
+  "description": "FarmSavior marketplace, weather, government programs, and agri-trading insights.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b3b2e",
+  "theme_color": "#0b3b2e",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

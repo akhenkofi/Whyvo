@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+.venv/
+venv/
+backend/.venv/
+
+# Node
+node_modules/
+web-admin/node_modules/
+web-admin/dist/
+
+# Local env and secrets
+.env
+.env.*
+*.env
+*.local
+!.env.example
+!*.env.example
+!.python-version
+backend/.env
+web-admin/.env
+web-admin/.env.local
+.vercel/
+mobile/android/app/google-services.json
+mobile/ios/Runner/GoogleService-Info.plist
+
+# Runtime logs/state
+.run/
+*.log
+
+# Data exports and local data lake snapshots
+data/raw/**/*.jsonl
+data/raw/**/*.json
+data/exports/**

@@ -1,0 +1,25 @@
+{
+  "info": {
+    "name": "FarmSavior MVP",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"]},
+        "body": {"mode": "raw", "raw": "{\n  \"full_name\": \"Kwame Mensah\",\n  \"phone\": \"+233201112223\",\n  \"country\": \"GH\",\n  \"role\": \"Farmer\"\n}"}
+      }
+    },
+    {
+      "name": "Admin Metrics",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "{{baseUrl}}/admin/metrics", "host": ["{{baseUrl}}"], "path": ["admin", "metrics"]}
+      }
+    }
+  ],
+  "variable": [{"key": "baseUrl", "value": "http://127.0.0.1:8000/api/v1"}]
+}

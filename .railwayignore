@@ -1,0 +1,11 @@
+backend/.venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+web-admin/node_modules/
+web-admin/dist/
+.run/
+*.log
+.DS_Store

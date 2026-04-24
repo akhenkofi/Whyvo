@@ -1,0 +1,23 @@
+FarmSavior current live reference snapshot
+
+LIVE FREEZE IN EFFECT
+- Do not deploy anything new.
+- Do not push CLI changes.
+- Keep current live Vercel and Railway state untouched unless Akhenaten explicitly overrides this freeze.
+- Preview all edits before any future deploy.
+
+Current Vercel production deployment observed locally:
+https://farm-savior-hout9xgfa-akhens-projects-97a6a9ea.vercel.app
+
+Current public domain expected to point here:
+https://www.farmsavior.com
+
+Current Railway status observed locally:
+Project: FarmSavior App
+Environment: production
+Service: FarmSavior
+
+Important workflow rule:
+- Before any future FarmSavior work, first verify local source matches the intended live rollback baseline.
+- Do not edit forward from a previously failed local build.
+- If the repo on disk does not match the approved live baseline, stop and inspect before making any change.
