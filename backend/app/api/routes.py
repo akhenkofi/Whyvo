@@ -7487,11 +7487,59 @@ def dispute_marketplace_order(order_id: int, payload: MarketplaceOrderStatusIn, 
     if payload.seller_note:
         order.seller_note = payload.seller_note
     order.updated_at = datetime.utcnow()
+    existing = db.query(MarketplaceDispute).filter(MarketplaceDispute.order_id == order.id).order_by(MarketplaceDispute.id.desc()).first()
+    if existing:
+        existing.buyer_description = payload.buyer_note or existing.buyer_description
+        existing.seller_description = payload.seller_note or existing.seller_description
+        existing.status = 'open'
+    else:
+        db.add(MarketplaceDispute(
+            order_id=order.id,
+            buyer_id=order.buyer_id,
+            seller_id=order.seller_id,
+            buyer_description=payload.buyer_note or 'Buyer opened a dispute.',
+            seller_description=payload.seller_note or None,
+            status='open',
+        ))
     _notify_user(db, order.buyer_id, 'Dispute opened', f'Order #{order.id} is now under dispute review.')
     _notify_user(db, order.seller_id, 'Dispute opened', f'Order #{order.id} is now under dispute review.')
     db.commit()
     db.refresh(order)
     return order
+
+
+def _marketplace_dispute_to_dict(dispute: MarketplaceDispute):
+    return {
+        'id': dispute.id,
+        'order_id': dispute.order_id,
+        'buyer_id': dispute.buyer_id,
+        'seller_id': dispute.seller_id,
+        'buyer_description': dispute.buyer_description,
+        'buyer_note': dispute.buyer_description,
+        'buyer_evidence_url': dispute.buyer_evidence_url,
+        'seller_description': dispute.seller_description,
+        'seller_note': dispute.seller_description,
+        'seller_evidence_url': dispute.seller_evidence_url,
+        'status': dispute.status,
+        'created_at': dispute.created_at.isoformat() if getattr(dispute, 'created_at', None) else None,
+    }
+
+
+@router.get('/disputes')
+def list_marketplace_disputes(db: Session = Depends(get_db)):
+    return [
+        _marketplace_dispute_to_dict(row)
+        for row in db.query(MarketplaceDispute).order_by(MarketplaceDispute.id.desc()).all()
+    ]
+
+
+@router.get('/disputes/order/{order_id}')
+def get_marketplace_dispute_by_order(order_id: int, db: Session = Depends(get_db)):
+    dispute = db.query(MarketplaceDispute).filter(MarketplaceDispute.order_id == order_id).order_by(MarketplaceDispute.id.desc()).first()
+    if not dispute:
+        raise HTTPException(status_code=404, detail='Dispute not found')
+    return _marketplace_dispute_to_dict(dispute)
+
 
 @router.get('/notifications')
 def list_marketplace_notifications(user_id: Optional[int] = None, db: Session = Depends(get_db)):

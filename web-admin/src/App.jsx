@@ -4139,6 +4139,11 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  const [webFarmBest, setWebFarmBest] = useState(0)
  const [webFarmReward, setWebFarmReward] = useState('')
  const [me, setMe] = useState(null)
+ const [signup, setSignup] = useState({ full_name: '', signup_method: 'phone', phone: '', email: '', country: 'GH', region: '', user_type: 'Farmer', password: '', accept_terms: true, accept_privacy: true, consent_analytics: true, consent_personalization: true, consent_marketing: false, consent_aggregated_insights: true })
+ const [login, setLogin] = useState({ identifier: '', password: '' })
+ const [otp, setOtp] = useState({ destination: '', code: '' })
+ const [otpResendReadyAt, setOtpResendReadyAt] = useState(0)
+ const [otpNowMs, setOtpNowMs] = useState(Date.now())
  const adminPhoneNormalized = normalizePhone(me?.phone || login?.identifier || '')
  const adminPhoneDigits = adminPhoneNormalized.replace(/\D/g, '')
  const loginDigits = String(login?.identifier || '').replace(/\D/g, '')
@@ -4148,7 +4153,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
   || forcedAdminDigits.includes(adminPhoneDigits)
   || forcedAdminDigits.includes(loginDigits)
  const isAdminUser = isAdminRole || isAdminPhone
-const canSendOutPayouts = isAdminUser
+ const canSendOutPayouts = isAdminUser
  const lastTrackRef = useRef('')
 
  useEffect(() => {
@@ -4164,11 +4169,6 @@ const canSendOutPayouts = isAdminUser
   try { localStorage.setItem(`farmsavior_community_profile_cache_${me.id}`, JSON.stringify(communityProfile || {})) } catch {}
  }, [communityProfile, me?.id])
 
- const [signup, setSignup] = useState({ full_name: '', signup_method: 'phone', phone: '', email: '', country: 'GH', region: '', user_type: 'Farmer', password: '', accept_terms: true, accept_privacy: true, consent_analytics: true, consent_personalization: true, consent_marketing: false, consent_aggregated_insights: true })
- const [login, setLogin] = useState({ identifier: '', password: '' })
- const [otp, setOtp] = useState({ destination: '', code: '' })
- const [otpResendReadyAt, setOtpResendReadyAt] = useState(0)
- const [otpNowMs, setOtpNowMs] = useState(Date.now())
 
  const [idForm, setIdForm] = useState({ user_id: 1, id_type: 'GhanaCard', id_number: '', id_photo_url: '', id_front_photo_url: '', id_back_photo_url: '', facial_verification_flag: false })
  const [accountForm, setAccountForm] = useState({ full_name: '', email: '', region: '' })
