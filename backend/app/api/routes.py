@@ -2477,21 +2477,6 @@ def analytics_users_summary(authorization: Optional[str] = Header(None), db: Ses
     }
 
 
-@router.post('/analytics/presence')
-def analytics_presence(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    user = _current_user_from_auth(authorization, db)
-    try:
-        if hasattr(user, 'last_active_at'):
-            user.last_active_at = datetime.utcnow()
-        else:
-            db.execute(text("ALTER TABLE users ADD COLUMN last_active_at TIMESTAMP NULL"))
-            user.last_active_at = datetime.utcnow()
-        db.commit()
-    except Exception:
-        db.rollback()
-    return {'message': 'presence updated', 'last_active_at': datetime.utcnow().isoformat() + 'Z'}
-
-
 @router.get('/analytics/admin/summary')
 def analytics_admin_summary(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     user = _current_user_from_auth(authorization, db)
@@ -7113,24 +7098,6 @@ def list_marketplace_orders(db: Session = Depends(get_db)):
     return rows
 
 
-
-
-@router.get('/orders/seller')
-def list_seller_marketplace_orders(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    _ensure_marketplace_user_schema(db)
-    user = _current_user_from_auth(authorization, db)
-    user_id = getattr(user, 'id', None)
-    if user_id is None:
-        raise HTTPException(status_code=401, detail='Authentication required')
-    rows = []
-    for order in db.query(MarketplaceOrder).filter(MarketplaceOrder.seller_id == int(user_id)).order_by(MarketplaceOrder.id.desc()).all():
-        raw = _row_to_dict(order, compact_media=False)
-        raw['buyer_marketplace_id'] = getattr(order, 'buyer_marketplace_id', None) or (_marketplace_public_id_for_user(int(order.buyer_id)) if getattr(order, 'buyer_id', None) else None)
-        raw['seller_marketplace_id'] = getattr(order, 'seller_marketplace_id', None) or (_marketplace_public_id_for_user(int(order.seller_id)) if getattr(order, 'seller_id', None) else None)
-        rows.append(raw)
-    return rows
-
-
 @router.get('/orders/{order_id}')
 def get_marketplace_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(MarketplaceOrder).filter(MarketplaceOrder.id == order_id).first()
@@ -7506,39 +7473,6 @@ def dispute_marketplace_order(order_id: int, payload: MarketplaceOrderStatusIn, 
     db.commit()
     db.refresh(order)
     return order
-
-
-def _marketplace_dispute_to_dict(dispute: MarketplaceDispute):
-    return {
-        'id': dispute.id,
-        'order_id': dispute.order_id,
-        'buyer_id': dispute.buyer_id,
-        'seller_id': dispute.seller_id,
-        'buyer_description': dispute.buyer_description,
-        'buyer_note': dispute.buyer_description,
-        'buyer_evidence_url': dispute.buyer_evidence_url,
-        'seller_description': dispute.seller_description,
-        'seller_note': dispute.seller_description,
-        'seller_evidence_url': dispute.seller_evidence_url,
-        'status': dispute.status,
-        'created_at': dispute.created_at.isoformat() if getattr(dispute, 'created_at', None) else None,
-    }
-
-
-@router.get('/disputes')
-def list_marketplace_disputes(db: Session = Depends(get_db)):
-    return [
-        _marketplace_dispute_to_dict(row)
-        for row in db.query(MarketplaceDispute).order_by(MarketplaceDispute.id.desc()).all()
-    ]
-
-
-@router.get('/disputes/order/{order_id}')
-def get_marketplace_dispute_by_order(order_id: int, db: Session = Depends(get_db)):
-    dispute = db.query(MarketplaceDispute).filter(MarketplaceDispute.order_id == order_id).order_by(MarketplaceDispute.id.desc()).first()
-    if not dispute:
-        raise HTTPException(status_code=404, detail='Dispute not found')
-    return _marketplace_dispute_to_dict(dispute)
 
 
 @router.get('/notifications')
