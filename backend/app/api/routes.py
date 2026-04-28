@@ -2187,35 +2187,12 @@ def _optional_current_user_from_auth(authorization: Optional[str], db: Session):
 
 @router.get('/auth/me')
 def auth_me(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    _ensure_marketplace_user_schema(db)
-    _ensure_farm_game_schema(db)
     u = _current_user_from_auth(authorization, db)
-    try:
-        if hasattr(u, 'last_active_at'):
-            u.last_active_at = datetime.utcnow()
-        else:
-            db.execute(text("ALTER TABLE users ADD COLUMN last_active_at TIMESTAMP NULL"))
-            u.last_active_at = datetime.utcnow()
-    except Exception:
-        pass
-    if _normalize_phone(getattr(u, 'phone', '')) in _phone_variants('+233536761831'):
-        try:
-            if str(getattr(u, 'role', '')).lower() != 'admin':
-                u.role = UserRole.admin
-                db.commit()
-                db.refresh(u)
-        except Exception:
-            db.rollback()
-    changed = _ensure_user_marketplace_identity(u)
-    seller_status = _refresh_seller_status(db, u)
-    if changed:
-        db.commit()
-        db.refresh(u)
     role = u.role.value if hasattr(u.role, 'value') else str(u.role)
     effective_role = 'Admin' if _is_admin_user(u) else ('Farmer' if str(role).lower() == 'admin' else role)
     identity = _identity_review_for_user(db, u.id)
-    db.commit()
-    wallet = _get_or_create_farm_game_wallet(db, u.id)
+    wallet = db.query(FarmGameWallet).filter(FarmGameWallet.user_id == u.id).first()
+    seller_status = getattr(u, 'seller_status', None) or 'LIMITED'
     return {
         'id': u.id,
         'marketplace_id': getattr(u, 'marketplace_id', None) or _marketplace_public_id_for_user(int(u.id)),
@@ -2238,11 +2215,11 @@ def auth_me(authorization: Optional[str] = Header(None), db: Session = Depends(g
         'identity_status_label': identity['label'],
         'identity_blue_check': identity['blue_check'],
         'farm_game_wallet': {
-            'credits_balance': int(wallet.credits_balance or 0),
-            'lifetime_credits_earned': int(wallet.lifetime_credits_earned or 0),
-            'lifetime_credits_spent': int(wallet.lifetime_credits_spent or 0),
-            'current_streak_days': int(wallet.current_streak_days or 0),
-            'last_login_reward_at': wallet.last_login_reward_at,
+            'credits_balance': int(getattr(wallet, 'credits_balance', 0) or 0),
+            'lifetime_credits_earned': int(getattr(wallet, 'lifetime_credits_earned', 0) or 0),
+            'lifetime_credits_spent': int(getattr(wallet, 'lifetime_credits_spent', 0) or 0),
+            'current_streak_days': int(getattr(wallet, 'current_streak_days', 0) or 0),
+            'last_login_reward_at': getattr(wallet, 'last_login_reward_at', None),
         }
     }
 
