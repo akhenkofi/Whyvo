@@ -374,9 +374,14 @@ allowed_origins = [o.strip() for o in str(settings.FRONTEND_ORIGINS or '').split
 if not allowed_origins:
     allowed_origins = ['https://www.farmsavior.com']
 
+# Keep explicit production origins, but allow FarmSavior Vercel preview subdomains
+# so preview URLs can rotate without breaking login CORS in staging.
+allowed_origin_regex = r'^https://farm-savior-[a-z0-9-]+-akhens-projects-97a6a9ea\.vercel\.app$'
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
     allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allow_headers=['Authorization', 'Content-Type', 'X-Requested-With'],
