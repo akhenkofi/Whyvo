@@ -11903,9 +11903,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
 
 function WhyvoResetApp() {
  const WHYVO_LAST_PHONE_KEY = 'whyvo_last_phone'
- const WHYVO_KNOWN_PHONES_KEY = 'whyvo_known_phones'
  const WHYVO_LAST_COUNTRY_KEY = 'whyvo_last_country'
- const WHYVO_AUTH_SEED = 'whyvo-quiet-launch-v1'
  const notificationSupported = typeof window !== 'undefined' && 'Notification' in window
  const contactsSupported = typeof navigator !== 'undefined' && !!navigator.contacts?.select
  const countries = [
@@ -12017,7 +12015,10 @@ function WhyvoResetApp() {
  const [phoneDigits, setPhoneDigits] = useState('')
  const [pendingPhone, setPendingPhone] = useState('')
  const [showConfirmModal, setShowConfirmModal] = useState(false)
- const [pinInput, setPinInput] = useState('')
+ const [otpCode, setOtpCode] = useState('')
+ const [otpDestination, setOtpDestination] = useState('')
+ const [otpResendReadyAt, setOtpResendReadyAt] = useState(0)
+ const [otpNowMs, setOtpNowMs] = useState(Date.now())
  const [contactsPromptOpen, setContactsPromptOpen] = useState(false)
  const [contactsStatus, setContactsStatus] = useState('idle')
  const [contactsFeedback, setContactsFeedback] = useState('')
@@ -12031,7 +12032,6 @@ function WhyvoResetApp() {
  const hasValidPhone = normalizedDigits.length >= 7
  const formattedPhone = `${country.dial}${normalizedDigits}`
  const maskedPhone = hasValidPhone ? `${country.dial} ${normalizedDigits}` : ''
- const generatedPin = normalizedDigits.slice(-6).padStart(6, '0')
 
  const sortedThreads = useMemo(() => (threads || []).slice().sort((a, b) => {
   const aTime = new Date(a?.last_message?.created_at || a?.updated_at || 0).getTime()
@@ -12068,28 +12068,29 @@ function WhyvoResetApp() {
  }
  const initials = (label = '') => String(label).split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'WY'
 
- const readKnownPhones = () => {
-  try {
-   const parsed = JSON.parse(localStorage.getItem(WHYVO_KNOWN_PHONES_KEY) || '[]')
-   return Array.isArray(parsed) ? parsed : []
-  } catch {
-   return []
-  }
- }
-
  const rememberPhone = (phone) => {
   try {
-   const next = [...new Set([phone, ...readKnownPhones()])]
-   localStorage.setItem(WHYVO_KNOWN_PHONES_KEY, JSON.stringify(next.slice(0, 25)))
    localStorage.setItem(WHYVO_LAST_PHONE_KEY, phone)
    localStorage.setItem(WHYVO_LAST_COUNTRY_KEY, country.code)
   } catch {}
  }
 
- const isReturningPhone = (phone) => readKnownPhones().includes(phone)
- const whyvoPasswordForPhone = (phone) => `Whyvo::${phone}::${WHYVO_AUTH_SEED}`
- const whyvoEmailForPhone = (phone) => `whyvo.${String(phone || '').replace(/[^\d]/g, '')}@whyvo.chat`
  const whyvoNameForPhone = (phone) => `Whyvo member ${String(phone || '').slice(-4)}`
+ const sanitizeWhyvoPhoneAuthError = (error, phone) => {
+  const message = errMsg(error)
+  const normalized = String(message || '').trim().toLowerCase()
+  if (!normalized) return `We could not start OTP verification for ${phone}. Please try again.`
+  if (
+   normalized.includes('invalid login credentials') ||
+   normalized.includes('incorrect password') ||
+   normalized.includes('wrong password') ||
+   normalized.includes('login failed') ||
+   normalized.includes('password')
+  ) {
+   return `We could not start OTP verification for ${phone}. Whyvo sign-in uses a one-time code here, not a password. Please try again.`
+  }
+  return message
+ }
 
  const syncSettingsFromMe = (nextMe) => {
   setSettingsForm({
@@ -12223,6 +12224,13 @@ function WhyvoResetApp() {
   setContactsPromptOpen(true)
  }, [me?.id])
 
+ useEffect(() => {
+  if (authStep !== 'pin') return
+  setOtpNowMs(Date.now())
+  const timer = setInterval(() => setOtpNowMs(Date.now()), 1000)
+  return () => clearInterval(timer)
+ }, [authStep])
+
  const openPhoneStep = () => {
   setAuthFeedback('')
   setAuthStep('phone')
@@ -12236,34 +12244,33 @@ function WhyvoResetApp() {
 
  const proceedWithPhone = async () => {
   if (!pendingPhone) return
+  const phone = pendingPhone
+  const phoneCountry = country
   setShowConfirmModal(false)
   setAuthFeedback('')
+  setOtpCode('')
   await requestNotificationPermissionIfNeeded()
   setAuthStep('checking')
   await new Promise((resolve) => setTimeout(resolve, 900))
-  if (isReturningPhone(pendingPhone)) {
-   setPinInput('')
-   setAuthStep('pin')
-   return
-  }
   setAuthLoading(true)
   try {
-   const password = whyvoPasswordForPhone(pendingPhone)
-   try {
-    await api.register({
-     full_name: whyvoNameForPhone(pendingPhone),
-     email: whyvoEmailForPhone(pendingPhone),
-     phone: pendingPhone,
-     password,
-     country: country.isoHint,
-     region: country.name,
-    })
-   } catch {}
-   const res = await api.login({ identifier: pendingPhone, password })
-   rememberPhone(pendingPhone)
-   persistToken(res?.access_token || '')
+   const registerRes = await api.register({
+    full_name: whyvoNameForPhone(phone),
+    phone,
+    country: phoneCountry.isoHint,
+    region: phoneCountry.name,
+    user_type: 'Farmer',
+   })
+   const destination = registerRes?.otp_destination || phone
+   setOtpDestination(destination)
+   setOtpResendReadyAt(Date.now() + 60_000)
+   rememberPhone(phone)
+   setAuthFeedback(registerRes?.otp_sent
+    ? `Enter the OTP sent to ${destination}.`
+    : `We created your Whyvo sign-in request for ${destination}. Enter the OTP when it arrives.`)
+   setAuthStep('pin')
   } catch (error) {
-   setAuthFeedback(errMsg(error))
+   setAuthFeedback(sanitizeWhyvoPhoneAuthError(error, phone))
    setAuthStep('phone')
   } finally {
    setAuthLoading(false)
@@ -12272,16 +12279,11 @@ function WhyvoResetApp() {
 
  const submitPin = async (event) => {
   event.preventDefault()
-  if (!pendingPhone) return
-  if (pinInput !== generatedPin) {
-   setAuthFeedback('That PIN does not match this Whyvo number yet.')
-   return
-  }
+  if (!pendingPhone || !otpCode) return
   setAuthLoading(true)
   setAuthFeedback('')
   try {
-   const res = await api.login({ identifier: pendingPhone, password: whyvoPasswordForPhone(pendingPhone) })
-   rememberPhone(pendingPhone)
+   const res = await api.verifyOtp({ destination: otpDestination || pendingPhone, code: otpCode })
    persistToken(res?.access_token || '')
   } catch (error) {
    setAuthFeedback(errMsg(error))
@@ -12413,19 +12415,22 @@ function WhyvoResetApp() {
     <div className='whyvo-auth-badge'>Checking account</div>
     <div className='whyvo-auth-heading'>
      <strong>Setting up Whyvo</strong>
-     <span>We’re preparing {pendingPhone || 'your number'} and getting your conversations ready.</span>
+     <span>We’re preparing {pendingPhone || 'your number'} and requesting your verification code.</span>
     </div>
     <div className='whyvo-inline-note'>Notifications {notificationStatus === 'granted' ? 'are on for this browser.' : notificationStatus === 'denied' ? 'were skipped for now.' : notificationStatus === 'unsupported' ? 'are not available in this browser.' : 'are being prepared.'}</div>
    </section> : <form className='whyvo-auth-card whyvo-auth-card-mobile whyvo-auth-form-card' onSubmit={submitPin}>
     <div className='whyvo-auth-badge'>Whyvo security</div>
     <div className='whyvo-auth-heading'>
-     <strong>Enter your two-step PIN</strong>
-     <span>This number has been used on this device before. Enter the 6-digit Whyvo PIN to continue to Chats.</span>
+     <strong>Enter your verification code</strong>
+     <span>We sent a 6-digit OTP to {otpDestination || pendingPhone}. Enter it to continue to Chats.</span>
     </div>
-    <div className='whyvo-inline-note'>Number: {pendingPhone}<br />Demo device PIN for this build: <strong>{generatedPin}</strong></div>
-    <input className='input' inputMode='numeric' placeholder='6-digit PIN' value={pinInput} onChange={(e) => setPinInput(String(e.target.value || '').replace(/\D/g, '').slice(0, 6))} />
+    <div className='whyvo-inline-note'>Number: {pendingPhone}</div>
+    <input className='input' inputMode='numeric' placeholder='6-digit code' value={otpCode} onChange={(e) => setOtpCode(String(e.target.value || '').replace(/\D/g, '').slice(0, 6))} />
     {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
-    <button className='whyvo-primary-cta whyvo-auth-submit' type='submit' disabled={authLoading || pinInput.length !== 6}>{authLoading ? 'Opening Whyvo…' : 'Next'}</button>
+    <div className='card-actions'>
+     <button type='button' className='btn' disabled={authLoading || otpNowMs < otpResendReadyAt} onClick={proceedWithPhone}>{otpNowMs < otpResendReadyAt ? `Resend in ${Math.max(1, Math.ceil((otpResendReadyAt - otpNowMs) / 1000))}s` : 'Resend code'}</button>
+    </div>
+    <button className='whyvo-primary-cta whyvo-auth-submit' type='submit' disabled={authLoading || otpCode.length < 4}>{authLoading ? 'Opening Whyvo…' : 'Next'}</button>
     <button className='whyvo-text-action whyvo-back-action' type='button' onClick={() => setAuthStep('phone')}>Back</button>
    </form>}
    {showConfirmModal ? <div className='lightbox'>
