@@ -1,12 +1,12 @@
 {
-  "name": "FarmSavior",
-  "short_name": "FarmSavior",
-  "description": "FarmSavior marketplace, weather, government programs, and agri-trading insights.",
+  "name": "Whyvo",
+  "short_name": "Whyvo",
+  "description": "Whyvo is a simple communication app for direct messaging, audio calls, and video calls.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0b3b2e",
-  "theme_color": "#0b3b2e",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
   "icons": [
     {
       "src": "/assets/icon-192.png",
