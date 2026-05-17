@@ -11917,6 +11917,7 @@ function WhyvoResetApp() {
  const [authFeedback, setAuthFeedback] = useState('')
  const [draft, setDraft] = useState('')
  const [shellTab, setShellTab] = useState('chats')
+ const [searchQuery, setSearchQuery] = useState('')
  const [settingsForm, setSettingsForm] = useState({ full_name: '', email: '', region: '' })
  const [settingsFeedback, setSettingsFeedback] = useState('')
  const [activeCall, setActiveCall] = useState(null)
@@ -11930,6 +11931,15 @@ function WhyvoResetApp() {
  }), [threads])
 
  const selectedThread = useMemo(() => sortedThreads.find((item) => String(item?.user_id || item?.id || '') === String(selectedUserId || '')) || null, [sortedThreads, selectedUserId])
+ const filteredThreads = useMemo(() => {
+  const query = String(searchQuery || '').trim().toLowerCase()
+  if (!query) return sortedThreads
+  return sortedThreads.filter((thread) => {
+   const label = getUserLabel(thread).toLowerCase()
+   const snippet = getSnippet(thread).toLowerCase()
+   return label.includes(query) || snippet.includes(query)
+  })
+ }, [sortedThreads, searchQuery])
 
  const formatTime = (value) => {
   if (!value) return ''
@@ -12137,146 +12147,106 @@ function WhyvoResetApp() {
  }
 
  if (!me) {
-  return <div className='whyvo-reset-shell'>
-   <div className='whyvo-auth-layout'>
-    <section className='whyvo-auth-hero'>
-     <div className='whyvo-auth-badge'>Whyvo</div>
-     <h1>Chats first, calls ready, FarmSavior visuals gone.</h1>
-     <p>Whyvo now opens like a focused messaging workspace. Sign in to load your existing threads and community call activity.</p>
-     <div className='whyvo-stat-row'>
-      <div><strong>Inbox-led</strong><span>WhatsApp-style shell</span></div>
-      <div><strong>Threads kept</strong><span>Community messaging API still used</span></div>
-      <div><strong>Settings rebuilt</strong><span>Clean mobile panel</span></div>
-     </div>
-    </section>
-    <form className='whyvo-auth-card' onSubmit={submitAuth}>
-     <div className='tabs compact-tabs'>
-      <button type='button' className={`tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => setAuthMode('login')}>Sign in</button>
-      <button type='button' className={`tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => setAuthMode('register')}>Create account</button>
-     </div>
-     {authMode === 'register' ? <input className='input' placeholder='Full name' value={authForm.full_name} onChange={(e) => setAuthForm(prev => ({ ...prev, full_name: e.target.value }))} /> : null}
-     <input className='input' placeholder='Email' value={authForm.email} onChange={(e) => setAuthForm(prev => ({ ...prev, email: e.target.value }))} />
-     <input className='input' placeholder='Phone' value={authForm.phone} onChange={(e) => setAuthForm(prev => ({ ...prev, phone: e.target.value }))} />
-     <input className='input' type='password' placeholder='Password' value={authForm.password} onChange={(e) => setAuthForm(prev => ({ ...prev, password: e.target.value }))} />
-     {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
-     <button className='btn btn-dark' type='submit'>{authMode === 'login' ? 'Open Whyvo' : 'Create account'}</button>
-    </form>
-   </div>
+  return <div className='whyvo-reset-shell whyvo-auth-screen'>
+   <form className='whyvo-auth-card whyvo-auth-card-mobile' onSubmit={submitAuth}>
+    <div className='whyvo-auth-badge'>Whyvo</div>
+    <strong style={{ fontSize: '1.45rem' }}>Open your chats</strong>
+    <div className='tabs compact-tabs'>
+     <button type='button' className={`tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => setAuthMode('login')}>Sign in</button>
+     <button type='button' className={`tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => setAuthMode('register')}>Create account</button>
+    </div>
+    {authMode === 'register' ? <input className='input' placeholder='Full name' value={authForm.full_name} onChange={(e) => setAuthForm(prev => ({ ...prev, full_name: e.target.value }))} /> : null}
+    <input className='input' placeholder='Email' value={authForm.email} onChange={(e) => setAuthForm(prev => ({ ...prev, email: e.target.value }))} />
+    <input className='input' placeholder='Phone' value={authForm.phone} onChange={(e) => setAuthForm(prev => ({ ...prev, phone: e.target.value }))} />
+    <input className='input' type='password' placeholder='Password' value={authForm.password} onChange={(e) => setAuthForm(prev => ({ ...prev, password: e.target.value }))} />
+    {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
+    <button className='btn btn-dark' type='submit'>{authMode === 'login' ? 'Open Whyvo' : 'Create account'}</button>
+   </form>
   </div>
  }
 
- return <div className='whyvo-reset-shell'>
-  <div className='whyvo-phone-frame'>
-   <aside className='whyvo-sidebar'>
-    <div className='whyvo-sidebar-top'>
-     <div>
-      <div className='whyvo-auth-badge'>Whyvo</div>
-      <strong>{me?.full_name || 'Whyvo user'}</strong>
-      <div className='helper-text'>{me?.email || me?.phone || 'Private account'}</div>
-     </div>
-     <button type='button' className='btn' onClick={() => { persistToken(''); setMe(null) }}>Log out</button>
+ return <div className='whyvo-reset-shell whyvo-mobile-shell'>
+  {shellTab === 'settings' ? <main className='whyvo-mobile-panel whyvo-main-panel'>
+   <div className='whyvo-mobile-topbar'>
+    <button type='button' className='whyvo-top-action' onClick={() => setShellTab('chats')} aria-label='Back to chats'>←</button>
+    <h1>Settings</h1>
+    <button type='button' className='whyvo-top-action' onClick={() => { persistToken(''); setMe(null) }} aria-label='Log out'>⎋</button>
+   </div>
+   <form className='whyvo-settings-card' onSubmit={saveSettings}>
+    <label className='whyvo-field'>
+     <span>Full name</span>
+     <input className='input' value={settingsForm.full_name} onChange={(e) => setSettingsForm(prev => ({ ...prev, full_name: e.target.value }))} />
+    </label>
+    <label className='whyvo-field'>
+     <span>Email</span>
+     <input className='input' value={settingsForm.email} onChange={(e) => setSettingsForm(prev => ({ ...prev, email: e.target.value }))} />
+    </label>
+    <label className='whyvo-field'>
+     <span>Region</span>
+     <input className='input' value={settingsForm.region} onChange={(e) => setSettingsForm(prev => ({ ...prev, region: e.target.value }))} />
+    </label>
+    <div className='whyvo-settings-block'>
+     <strong>Privacy</strong>
+     <span>Community messaging and call signaling stay available underneath this reset UI.</span>
     </div>
-    <div className='whyvo-nav-pills'>
-     <button type='button' className={`whyvo-nav-pill ${shellTab === 'chats' ? 'active' : ''}`} onClick={() => setShellTab('chats')}>Chats</button>
-     <button type='button' className={`whyvo-nav-pill ${shellTab === 'settings' ? 'active' : ''}`} onClick={() => setShellTab('settings')}>Settings</button>
+    {settingsFeedback ? <div className='whyvo-inline-note'>{settingsFeedback}</div> : null}
+    <button className='btn btn-dark' type='submit'>Save settings</button>
+   </form>
+  </main> : <main className='whyvo-mobile-panel whyvo-thread-list-panel'>
+   <div className='whyvo-mobile-topbar'>
+    <div className='whyvo-top-spacer' />
+    <h1>Chats</h1>
+    <div className='whyvo-top-actions'>
+     <button type='button' className='whyvo-top-action' onClick={() => loadThreads(selectedUserId)} aria-label='Refresh chats'>{threadsLoading ? '…' : '⌕'}</button>
+     <button type='button' className='whyvo-top-action' onClick={() => setShellTab('settings')} aria-label='Open settings'>⋯</button>
     </div>
-    <div className='whyvo-stats-grid'>
-     {shellStats.map(item => <div key={item.label} className='whyvo-stat-card'><strong>{item.value}</strong><span>{item.label}</span></div>)}
-    </div>
-    <div className='whyvo-settings-preview'>
-     <span>Visible reset complete</span>
-     <small>Main flow is now chats and settings only.</small>
-    </div>
-   </aside>
-
-   {shellTab === 'settings' ? <main className='whyvo-main-panel'>
-    <div className='whyvo-header'>
-     <div>
-      <h2>Settings</h2>
-      <p>Compact profile, privacy, and account details, shaped for mobile-first use.</p>
-     </div>
-    </div>
-    <form className='whyvo-settings-card' onSubmit={saveSettings}>
-     <label className='whyvo-field'>
-      <span>Full name</span>
-      <input className='input' value={settingsForm.full_name} onChange={(e) => setSettingsForm(prev => ({ ...prev, full_name: e.target.value }))} />
-     </label>
-     <label className='whyvo-field'>
-      <span>Email</span>
-      <input className='input' value={settingsForm.email} onChange={(e) => setSettingsForm(prev => ({ ...prev, email: e.target.value }))} />
-     </label>
-     <label className='whyvo-field'>
-      <span>Region</span>
-      <input className='input' value={settingsForm.region} onChange={(e) => setSettingsForm(prev => ({ ...prev, region: e.target.value }))} />
-     </label>
-     <div className='whyvo-settings-block'>
-      <strong>Privacy</strong>
-      <span>Community messaging and call signaling stay available underneath this reset UI.</span>
-     </div>
-     {settingsFeedback ? <div className='whyvo-inline-note'>{settingsFeedback}</div> : null}
-     <button className='btn btn-dark' type='submit'>Save settings</button>
-    </form>
-   </main> : <>
-    <section className='whyvo-thread-list-panel'>
-     <div className='whyvo-header'>
-      <div>
-       <h2>Chats</h2>
-       <p>Your inbox opens first, just like a messenger.</p>
-      </div>
-      <button type='button' className='btn' onClick={() => loadThreads(selectedUserId)}>{threadsLoading ? 'Refreshing…' : 'Refresh'}</button>
-     </div>
-     <div className='whyvo-search-shell'>
-      <input className='input' placeholder='Search is coming next, threads stay preserved below' readOnly />
-     </div>
-     <div className='whyvo-thread-feed'>
-      {sortedThreads.map((thread) => {
-       const label = getUserLabel(thread)
-       const active = String(thread?.user_id || thread?.id || '') === String(selectedUserId || '')
-       return <button type='button' key={String(thread?.user_id || thread?.id || label)} className={`whyvo-thread-tile ${active ? 'active' : ''}`} onClick={() => loadThread(thread)}>
-        <div className='whyvo-avatar'>{initials(label)}</div>
-        <div className='whyvo-thread-copy'>
-         <div className='whyvo-thread-row-top'>
-          <strong>{label}</strong>
-          <span>{formatTime(thread?.last_message?.created_at || thread?.updated_at)}</span>
-         </div>
-         <p>{getSnippet(thread)}</p>
-        </div>
-        {Number(thread?.unread_count || 0) > 0 ? <div className='whyvo-unread-pill'>{thread.unread_count}</div> : null}
-       </button>
-      })}
-      {!sortedThreads.length ? <div className='whyvo-empty-card'>No community threads found yet.</div> : null}
-     </div>
-    </section>
-
-    <main className='whyvo-chat-panel'>
-     <div className='whyvo-header whyvo-chat-head'>
-      <div className='whyvo-chat-person'>
-       <div className='whyvo-avatar large'>{initials(getUserLabel(threadView?.user || selectedThread || me || 'Whyvo'))}</div>
-       <div>
-        <h2>{getUserLabel(threadView?.user || selectedThread || { full_name: 'Pick a thread' })}</h2>
-        <p>{activeCall ? activeCall.state : 'Community messages and call actions stay connected'}</p>
+   </div>
+   <div className='whyvo-search-shell whyvo-search-shell-mobile'>
+    <input className='input whyvo-search-input' placeholder='Search' value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+   </div>
+   <div className='whyvo-thread-feed whyvo-thread-feed-mobile'>
+    {filteredThreads.map((thread) => {
+     const label = getUserLabel(thread)
+     const active = String(thread?.user_id || thread?.id || '') === String(selectedUserId || '')
+     return <button type='button' key={String(thread?.user_id || thread?.id || label)} className={`whyvo-thread-tile ${active ? 'active' : ''}`} onClick={() => loadThread(thread)}>
+      <div className='whyvo-avatar'>{initials(label)}</div>
+      <div className='whyvo-thread-copy'>
+       <div className='whyvo-thread-row-top'>
+        <strong>{label}</strong>
+        <span>{formatTime(thread?.last_message?.created_at || thread?.updated_at)}</span>
        </div>
+       <p>{getSnippet(thread)}</p>
       </div>
-      <div className='card-actions'>
-       <button type='button' className='btn' onClick={() => startCall('audio')} disabled={!selectedUserId}>Audio call</button>
-       <button type='button' className='btn btn-dark' onClick={() => startCall('video')} disabled={!selectedUserId}>Video call</button>
-      </div>
-     </div>
-     <div className='whyvo-message-stage'>
-      {messagesLoading ? <div className='whyvo-empty-card'>Loading conversation…</div> : null}
-      {!messagesLoading && !(threadView?.messages || []).length ? <div className='whyvo-empty-card'>Open a thread to continue the conversation.</div> : null}
-      {(threadView?.messages || []).map((message, idx) => <div key={String(message?.id || idx)} className={`whyvo-bubble ${message?.is_mine ? 'mine' : ''}`}>
-       <div>{String(message?.text || '').includes('CALL_SIGNAL:') ? (String(message?.text || '').startsWith('📹') ? 'Video call activity' : 'Audio call activity') : (message?.text || '')}</div>
-       <span>{formatTime(message?.created_at)}</span>
-      </div>)}
-     </div>
-     <div className='whyvo-composer'>
-      <input className='input' placeholder='Type a message' value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendMessage() } }} />
-      <button type='button' className='btn btn-dark' onClick={sendMessage}>Send</button>
-     </div>
-    </main>
-   </>}
-  </div>
+      {Number(thread?.unread_count || 0) > 0 ? <div className='whyvo-unread-pill'>{thread.unread_count}</div> : null}
+     </button>
+    })}
+    {!filteredThreads.length ? <div className='whyvo-empty-card'>{sortedThreads.length ? 'No chats match your search.' : 'No community threads found yet.'}</div> : null}
+   </div>
+   <div className='whyvo-encryption-note'>Your personal messages are end-to-end encrypted.</div>
+  </main>}
+
+  <nav className='whyvo-bottom-tabbar' aria-label='Primary'>
+   {[
+    ['updates', 'Updates'],
+    ['calls', 'Calls'],
+    ['communities', 'Communities'],
+    ['chats', 'Chats'],
+    ['settings', 'Settings'],
+   ].map(([key, label]) => <button key={key} type='button' className={`whyvo-bottom-tab ${shellTab === key ? 'active' : ''}`} onClick={() => setShellTab(key)}>
+    <span>{label}</span>
+   </button>)}
+  </nav>
+
+  {(shellTab !== 'chats' && shellTab !== 'settings') ? <div className='lightbox'>
+   <div className='whyvo-call-sheet'>
+    <div className='whyvo-auth-badge'>{shellTab === 'calls' ? 'Calls' : shellTab === 'updates' ? 'Updates' : 'Communities'}</div>
+    <h3>{shellTab === 'calls' ? `${shellStats[2]?.value || 0} recent call threads` : `${shellTab[0].toUpperCase()}${shellTab.slice(1)} is coming next`}</h3>
+    <p>{shellTab === 'calls' ? 'Call signaling is still live underneath this chats-first shell.' : 'This tab is present for layout fidelity, but the opening reset work is focused on Chats.'}</p>
+    <div className='card-actions'>
+     <button type='button' className='btn btn-dark' onClick={() => setShellTab('chats')}>Back to Chats</button>
+    </div>
+   </div>
+  </div> : null}
 
   {incomingCall ? <div className='lightbox'>
    <div className='whyvo-call-sheet'>
