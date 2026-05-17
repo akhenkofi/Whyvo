@@ -11901,7 +11901,404 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  </>
 }
 
+function WhyvoResetApp() {
+ const [token, setToken] = useState(() => {
+  try { return localStorage.getItem('farmsavior_token') || '' } catch { return '' }
+ })
+ const [me, setMe] = useState(null)
+ const [threads, setThreads] = useState([])
+ const [selectedUserId, setSelectedUserId] = useState(null)
+ const [threadView, setThreadView] = useState({ user: null, messages: [] })
+ const [loading, setLoading] = useState(true)
+ const [threadsLoading, setThreadsLoading] = useState(false)
+ const [messagesLoading, setMessagesLoading] = useState(false)
+ const [authMode, setAuthMode] = useState('login')
+ const [authForm, setAuthForm] = useState({ phone: '', email: '', password: '', full_name: '' })
+ const [authFeedback, setAuthFeedback] = useState('')
+ const [draft, setDraft] = useState('')
+ const [shellTab, setShellTab] = useState('chats')
+ const [settingsForm, setSettingsForm] = useState({ full_name: '', email: '', region: '' })
+ const [settingsFeedback, setSettingsFeedback] = useState('')
+ const [activeCall, setActiveCall] = useState(null)
+ const [callInboxCursor, setCallInboxCursor] = useState(0)
+ const [incomingCall, setIncomingCall] = useState(null)
+
+ const sortedThreads = useMemo(() => (threads || []).slice().sort((a, b) => {
+  const aTime = new Date(a?.last_message?.created_at || a?.updated_at || 0).getTime()
+  const bTime = new Date(b?.last_message?.created_at || b?.updated_at || 0).getTime()
+  return bTime - aTime
+ }), [threads])
+
+ const selectedThread = useMemo(() => sortedThreads.find((item) => String(item?.user_id || item?.id || '') === String(selectedUserId || '')) || null, [sortedThreads, selectedUserId])
+
+ const formatTime = (value) => {
+  if (!value) return ''
+  try {
+   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(value))
+  } catch {
+   return String(value).replace('T', ' ').slice(11, 16)
+  }
+ }
+
+ const getUserLabel = (user) => user?.full_name || user?.username || user?.email || user?.phone || `User ${user?.user_id || user?.id || ''}`
+ const getSnippet = (thread) => {
+  const text = String(thread?.last_message?.text || '').trim()
+  if (!text) return 'No messages yet'
+  if (text.includes('CALL_SIGNAL:')) return text.startsWith('📹') ? 'Video call activity' : 'Audio call activity'
+  return text
+ }
+ const initials = (label = '') => String(label).split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'WY'
+
+ const syncSettingsFromMe = (nextMe) => {
+  setSettingsForm({
+   full_name: nextMe?.full_name || '',
+   email: nextMe?.pending_email || nextMe?.email || '',
+   region: nextMe?.region || '',
+  })
+ }
+
+ const loadThreads = async (preferUserId = selectedUserId) => {
+  setThreadsLoading(true)
+  try {
+   const data = await api.fetchCommunityMessageThreads()
+   const next = data || []
+   setThreads(next)
+   const firstId = preferUserId || next?.[0]?.user_id || next?.[0]?.id || null
+   if (firstId) setSelectedUserId(String(firstId))
+   return next
+  } catch (error) {
+   setSettingsFeedback(errMsg(error))
+   return []
+  } finally {
+   setThreadsLoading(false)
+  }
+ }
+
+ const loadThread = async (user) => {
+  const userId = String(user?.user_id || user?.id || selectedUserId || '')
+  if (!userId) return
+  setMessagesLoading(true)
+  try {
+   const data = await api.fetchCommunityMessageThread(userId, 80)
+   setThreadView({ user: data?.user || user || null, messages: data?.messages || [] })
+   setSelectedUserId(userId)
+  } catch (error) {
+   setThreadView({ user: user || null, messages: [] })
+   setSettingsFeedback(errMsg(error))
+  } finally {
+   setMessagesLoading(false)
+  }
+ }
+
+ const bootstrap = async () => {
+  setLoading(true)
+  try {
+   const meRes = token ? await api.fetchMe().catch(() => null) : null
+   setMe(meRes)
+   syncSettingsFromMe(meRes)
+   if (meRes) {
+    const nextThreads = await loadThreads()
+    const first = nextThreads?.[0] || null
+    if (first) await loadThread(first)
+   } else {
+    setThreads([])
+    setThreadView({ user: null, messages: [] })
+   }
+  } finally {
+   setLoading(false)
+  }
+ }
+
+ useEffect(() => {
+  bootstrap()
+ }, [token])
+
+ useEffect(() => {
+  if (!token || !me) return
+  const timer = setInterval(() => {
+   loadThreads(selectedUserId)
+   if (selectedUserId) loadThread(selectedThread || { user_id: selectedUserId })
+  }, 15000)
+  return () => clearInterval(timer)
+ }, [token, me, selectedUserId])
+
+ useEffect(() => {
+  if (!token || !me) return
+  const timer = setInterval(async () => {
+   try {
+    const inbox = await api.pollCommunityCallSignalInbox(callInboxCursor)
+    const items = inbox?.items || inbox || []
+    if (items.length) {
+     const newest = items[items.length - 1]
+     setCallInboxCursor(Number(newest?.id || callInboxCursor))
+     const offer = items.slice().reverse().find(item => String(item?.type || '').toLowerCase() === 'offer')
+     if (offer?.data?.fromUserId && Number(offer?.data?.fromUserId) !== Number(me?.id || 0)) {
+      setIncomingCall(offer.data)
+     }
+    }
+   } catch {}
+  }, 5000)
+  return () => clearInterval(timer)
+ }, [token, me, callInboxCursor])
+
+ const persistToken = (nextToken) => {
+  try {
+   if (nextToken) localStorage.setItem('farmsavior_token', nextToken)
+   else localStorage.removeItem('farmsavior_token')
+  } catch {}
+  setToken(nextToken || '')
+ }
+
+ const submitAuth = async (event) => {
+  event.preventDefault()
+  setAuthFeedback('')
+  try {
+   if (authMode === 'login') {
+    const identifier = normalizeIdentifier(authForm.email || authForm.phone)
+    const res = await api.login({ identifier, password: authForm.password })
+    persistToken(res?.access_token || '')
+   } else {
+    await api.register({
+     full_name: authForm.full_name,
+     email: authForm.email || undefined,
+     phone: authForm.phone ? normalizePhone(authForm.phone) : undefined,
+     password: authForm.password,
+    })
+    setAuthMode('login')
+    setAuthFeedback('Account created. Sign in to open chats.')
+   }
+  } catch (error) {
+   setAuthFeedback(errMsg(error))
+  }
+ }
+
+ const sendMessage = async () => {
+  const text = String(draft || '').trim()
+  const targetUserId = threadView?.user?.user_id || selectedUserId
+  if (!text || !targetUserId) return
+  try {
+   const sent = await api.sendCommunityMessage(targetUserId, { text })
+   setThreadView(prev => ({ ...prev, messages: [...(prev?.messages || []), sent].filter(Boolean) }))
+   setDraft('')
+   await loadThreads(targetUserId)
+  } catch (error) {
+   setSettingsFeedback(errMsg(error))
+  }
+ }
+
+ const startCall = async (mode = 'audio') => {
+  const targetUserId = threadView?.user?.user_id || selectedUserId
+  if (!targetUserId) return
+  const callId = `whyvo-call-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+  const payload = { v: 1, type: 'offer', mode, callId, fromUserId: Number(me?.id || 0), toUserId: Number(targetUserId || 0), ts: Date.now() }
+  try {
+   await api.pushCommunityCallSignal(callId, { type: 'offer', to_user_id: Number(targetUserId), data: payload })
+   const sent = await api.sendCommunityMessage(targetUserId, { text: `${mode === 'video' ? '📹' : '📞'} CALL_SIGNAL:${JSON.stringify(payload)}` })
+   setThreadView(prev => ({ ...prev, messages: [...(prev?.messages || []), sent].filter(Boolean) }))
+   setActiveCall({ mode, peerName: getUserLabel(threadView?.user || selectedThread || {}), state: 'Calling…', callId })
+   await loadThreads(targetUserId)
+  } catch (error) {
+   setSettingsFeedback(errMsg(error))
+  }
+ }
+
+ const respondToIncomingCall = async (decision) => {
+  if (!incomingCall) return
+  try {
+   await api.pushCommunityCallSignal(incomingCall.callId, { type: decision, to_user_id: Number(incomingCall.fromUserId || 0), data: { ...incomingCall, type: decision, ts: Date.now() } })
+   if (decision === 'answer') {
+    setActiveCall({ mode: incomingCall.mode || 'audio', peerName: `User ${incomingCall.fromUserId}`, state: 'Connected signaling ready', callId: incomingCall.callId })
+   }
+  } catch {}
+  setIncomingCall(null)
+ }
+
+ const saveSettings = async (event) => {
+  event.preventDefault()
+  setSettingsFeedback('')
+  try {
+   const updated = await api.updateMe(settingsForm)
+   setMe(updated)
+   syncSettingsFromMe(updated)
+   setSettingsFeedback('Settings saved.')
+  } catch (error) {
+   setSettingsFeedback(errMsg(error))
+  }
+ }
+
+ const shellStats = [
+  { label: 'Threads', value: sortedThreads.length },
+  { label: 'Unread', value: sortedThreads.filter(item => Number(item?.unread_count || 0) > 0).length },
+  { label: 'Calls', value: sortedThreads.filter(item => String(item?.last_message?.text || '').includes('CALL_SIGNAL:')).length },
+ ]
+
+ if (loading) {
+  return <div className='whyvo-reset-shell'><div className='whyvo-splash-card'><strong>Opening Whyvo…</strong><span>Resetting into the new chats-first workspace.</span></div></div>
+ }
+
+ if (!me) {
+  return <div className='whyvo-reset-shell'>
+   <div className='whyvo-auth-layout'>
+    <section className='whyvo-auth-hero'>
+     <div className='whyvo-auth-badge'>Whyvo</div>
+     <h1>Chats first, calls ready, FarmSavior visuals gone.</h1>
+     <p>Whyvo now opens like a focused messaging workspace. Sign in to load your existing threads and community call activity.</p>
+     <div className='whyvo-stat-row'>
+      <div><strong>Inbox-led</strong><span>WhatsApp-style shell</span></div>
+      <div><strong>Threads kept</strong><span>Community messaging API still used</span></div>
+      <div><strong>Settings rebuilt</strong><span>Clean mobile panel</span></div>
+     </div>
+    </section>
+    <form className='whyvo-auth-card' onSubmit={submitAuth}>
+     <div className='tabs compact-tabs'>
+      <button type='button' className={`tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => setAuthMode('login')}>Sign in</button>
+      <button type='button' className={`tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => setAuthMode('register')}>Create account</button>
+     </div>
+     {authMode === 'register' ? <input className='input' placeholder='Full name' value={authForm.full_name} onChange={(e) => setAuthForm(prev => ({ ...prev, full_name: e.target.value }))} /> : null}
+     <input className='input' placeholder='Email' value={authForm.email} onChange={(e) => setAuthForm(prev => ({ ...prev, email: e.target.value }))} />
+     <input className='input' placeholder='Phone' value={authForm.phone} onChange={(e) => setAuthForm(prev => ({ ...prev, phone: e.target.value }))} />
+     <input className='input' type='password' placeholder='Password' value={authForm.password} onChange={(e) => setAuthForm(prev => ({ ...prev, password: e.target.value }))} />
+     {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
+     <button className='btn btn-dark' type='submit'>{authMode === 'login' ? 'Open Whyvo' : 'Create account'}</button>
+    </form>
+   </div>
+  </div>
+ }
+
+ return <div className='whyvo-reset-shell'>
+  <div className='whyvo-phone-frame'>
+   <aside className='whyvo-sidebar'>
+    <div className='whyvo-sidebar-top'>
+     <div>
+      <div className='whyvo-auth-badge'>Whyvo</div>
+      <strong>{me?.full_name || 'Whyvo user'}</strong>
+      <div className='helper-text'>{me?.email || me?.phone || 'Private account'}</div>
+     </div>
+     <button type='button' className='btn' onClick={() => { persistToken(''); setMe(null) }}>Log out</button>
+    </div>
+    <div className='whyvo-nav-pills'>
+     <button type='button' className={`whyvo-nav-pill ${shellTab === 'chats' ? 'active' : ''}`} onClick={() => setShellTab('chats')}>Chats</button>
+     <button type='button' className={`whyvo-nav-pill ${shellTab === 'settings' ? 'active' : ''}`} onClick={() => setShellTab('settings')}>Settings</button>
+    </div>
+    <div className='whyvo-stats-grid'>
+     {shellStats.map(item => <div key={item.label} className='whyvo-stat-card'><strong>{item.value}</strong><span>{item.label}</span></div>)}
+    </div>
+    <div className='whyvo-settings-preview'>
+     <span>Visible reset complete</span>
+     <small>Main flow is now chats and settings only.</small>
+    </div>
+   </aside>
+
+   {shellTab === 'settings' ? <main className='whyvo-main-panel'>
+    <div className='whyvo-header'>
+     <div>
+      <h2>Settings</h2>
+      <p>Compact profile, privacy, and account details, shaped for mobile-first use.</p>
+     </div>
+    </div>
+    <form className='whyvo-settings-card' onSubmit={saveSettings}>
+     <label className='whyvo-field'>
+      <span>Full name</span>
+      <input className='input' value={settingsForm.full_name} onChange={(e) => setSettingsForm(prev => ({ ...prev, full_name: e.target.value }))} />
+     </label>
+     <label className='whyvo-field'>
+      <span>Email</span>
+      <input className='input' value={settingsForm.email} onChange={(e) => setSettingsForm(prev => ({ ...prev, email: e.target.value }))} />
+     </label>
+     <label className='whyvo-field'>
+      <span>Region</span>
+      <input className='input' value={settingsForm.region} onChange={(e) => setSettingsForm(prev => ({ ...prev, region: e.target.value }))} />
+     </label>
+     <div className='whyvo-settings-block'>
+      <strong>Privacy</strong>
+      <span>Community messaging and call signaling stay available underneath this reset UI.</span>
+     </div>
+     {settingsFeedback ? <div className='whyvo-inline-note'>{settingsFeedback}</div> : null}
+     <button className='btn btn-dark' type='submit'>Save settings</button>
+    </form>
+   </main> : <>
+    <section className='whyvo-thread-list-panel'>
+     <div className='whyvo-header'>
+      <div>
+       <h2>Chats</h2>
+       <p>Your inbox opens first, just like a messenger.</p>
+      </div>
+      <button type='button' className='btn' onClick={() => loadThreads(selectedUserId)}>{threadsLoading ? 'Refreshing…' : 'Refresh'}</button>
+     </div>
+     <div className='whyvo-search-shell'>
+      <input className='input' placeholder='Search is coming next, threads stay preserved below' readOnly />
+     </div>
+     <div className='whyvo-thread-feed'>
+      {sortedThreads.map((thread) => {
+       const label = getUserLabel(thread)
+       const active = String(thread?.user_id || thread?.id || '') === String(selectedUserId || '')
+       return <button type='button' key={String(thread?.user_id || thread?.id || label)} className={`whyvo-thread-tile ${active ? 'active' : ''}`} onClick={() => loadThread(thread)}>
+        <div className='whyvo-avatar'>{initials(label)}</div>
+        <div className='whyvo-thread-copy'>
+         <div className='whyvo-thread-row-top'>
+          <strong>{label}</strong>
+          <span>{formatTime(thread?.last_message?.created_at || thread?.updated_at)}</span>
+         </div>
+         <p>{getSnippet(thread)}</p>
+        </div>
+        {Number(thread?.unread_count || 0) > 0 ? <div className='whyvo-unread-pill'>{thread.unread_count}</div> : null}
+       </button>
+      })}
+      {!sortedThreads.length ? <div className='whyvo-empty-card'>No community threads found yet.</div> : null}
+     </div>
+    </section>
+
+    <main className='whyvo-chat-panel'>
+     <div className='whyvo-header whyvo-chat-head'>
+      <div className='whyvo-chat-person'>
+       <div className='whyvo-avatar large'>{initials(getUserLabel(threadView?.user || selectedThread || me || 'Whyvo'))}</div>
+       <div>
+        <h2>{getUserLabel(threadView?.user || selectedThread || { full_name: 'Pick a thread' })}</h2>
+        <p>{activeCall ? activeCall.state : 'Community messages and call actions stay connected'}</p>
+       </div>
+      </div>
+      <div className='card-actions'>
+       <button type='button' className='btn' onClick={() => startCall('audio')} disabled={!selectedUserId}>Audio call</button>
+       <button type='button' className='btn btn-dark' onClick={() => startCall('video')} disabled={!selectedUserId}>Video call</button>
+      </div>
+     </div>
+     <div className='whyvo-message-stage'>
+      {messagesLoading ? <div className='whyvo-empty-card'>Loading conversation…</div> : null}
+      {!messagesLoading && !(threadView?.messages || []).length ? <div className='whyvo-empty-card'>Open a thread to continue the conversation.</div> : null}
+      {(threadView?.messages || []).map((message, idx) => <div key={String(message?.id || idx)} className={`whyvo-bubble ${message?.is_mine ? 'mine' : ''}`}>
+       <div>{String(message?.text || '').includes('CALL_SIGNAL:') ? (String(message?.text || '').startsWith('📹') ? 'Video call activity' : 'Audio call activity') : (message?.text || '')}</div>
+       <span>{formatTime(message?.created_at)}</span>
+      </div>)}
+     </div>
+     <div className='whyvo-composer'>
+      <input className='input' placeholder='Type a message' value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendMessage() } }} />
+      <button type='button' className='btn btn-dark' onClick={sendMessage}>Send</button>
+     </div>
+    </main>
+   </>}
+  </div>
+
+  {incomingCall ? <div className='lightbox'>
+   <div className='whyvo-call-sheet'>
+    <div className='whyvo-auth-badge'>Incoming {incomingCall.mode === 'video' ? 'video' : 'audio'} call</div>
+    <h3>User {incomingCall.fromUserId}</h3>
+    <p>The signaling path is still active under the reset UI.</p>
+    <div className='card-actions'>
+     <button type='button' className='btn' onClick={() => respondToIncomingCall('decline')}>Decline</button>
+     <button type='button' className='btn btn-dark' onClick={() => respondToIncomingCall('answer')}>Answer</button>
+    </div>
+   </div>
+  </div> : null}
+
+  {activeCall ? <div className='whyvo-active-call-bar'>
+   <strong>{activeCall.mode === 'video' ? '📹' : '📞'} {activeCall.peerName}</strong>
+   <span>{activeCall.state}</span>
+   <button type='button' className='btn' onClick={() => setActiveCall(null)}>End</button>
+  </div> : null}
+ </div>
+}
+
 export default function App() {
- return <AppErrorBoundary><AppInner /></AppErrorBoundary>
+ return <AppErrorBoundary><WhyvoResetApp /></AppErrorBoundary>
 }
 
