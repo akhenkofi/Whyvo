@@ -288,6 +288,15 @@ const mapBoundsByCountry = {
 }
 
 const userTypes = ['Farmer', 'Buyer', 'Transporter', 'EquipmentProvider', 'StorageProvider']
+const DEFAULT_USER_TYPE = 'Farmer'
+const USER_TYPE_BY_NORMALIZED_KEY = userTypes.reduce((map, userType) => {
+ map[String(userType).toLowerCase()] = userType
+ return map
+}, {})
+const coerceValidUserType = (value, fallback = DEFAULT_USER_TYPE) => {
+ const normalized = String(value || '').trim().toLowerCase()
+ return USER_TYPE_BY_NORMALIZED_KEY[normalized] || fallback
+}
 const cropOptions = ['Cassava','Maize','Tomato','Rice','Yam','Plantain','Onion','Pepper','Cocoa','Sorghum','Millet','Groundnut']
 const animalOptions = [
  { label: 'Poultry', value: 'poultry' },
@@ -4149,7 +4158,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  const [webFarmBest, setWebFarmBest] = useState(0)
  const [webFarmReward, setWebFarmReward] = useState('')
  const [me, setMe] = useState(null)
- const [signup, setSignup] = useState({ full_name: '', signup_method: 'phone', phone: '', email: '', country: 'GH', region: '', user_type: 'Farmer', password: '', accept_terms: true, accept_privacy: true, consent_analytics: true, consent_personalization: true, consent_marketing: false, consent_aggregated_insights: true })
+ const [signup, setSignup] = useState({ full_name: '', signup_method: 'phone', phone: '', email: '', country: 'GH', region: '', user_type: DEFAULT_USER_TYPE, password: '', accept_terms: true, accept_privacy: true, consent_analytics: true, consent_personalization: true, consent_marketing: false, consent_aggregated_insights: true })
  const [login, setLogin] = useState({ identifier: '', password: '' })
  const [otp, setOtp] = useState({ destination: '', code: '' })
  const [otpResendReadyAt, setOtpResendReadyAt] = useState(0)
@@ -6718,6 +6727,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  const regionValue = String(form.get('region') || signup.region || '').trim()
  const passwordValue = String(form.get('password') || signup.password || '').trim()
  const signupMethodValue = 'phone'
+ const userTypeValue = coerceValidUserType(String(form.get('user_type') || signup.user_type || DEFAULT_USER_TYPE))
  if (!signup.accept_terms || !signup.accept_privacy) { setAuthMsg('Please accept Terms and Privacy to continue.'); return }
  if (!fullNameValue) { setAuthMsg('Please enter your full name.'); return }
  if (!countryValue) { setAuthMsg('Please enter your country.'); return }
@@ -6726,7 +6736,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  if (signupMethodValue === 'phone' && !phoneValue) { setAuthMsg('Please enter a valid phone number.'); return }
  if (signupMethodValue === 'email' && !emailValue) { setAuthMsg('Please enter your email address.'); return }
  if (signupMethodValue === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) { setAuthMsg('Please enter a valid email address.'); return }
- setSignup(prev => ({ ...prev, full_name: fullNameValue, email: emailValue || prev.email, phone: phoneValue || prev.phone, country: countryValue, region: regionValue, password: passwordValue }))
+ setSignup(prev => ({ ...prev, full_name: fullNameValue, email: emailValue || prev.email, phone: phoneValue || prev.phone, country: countryValue, region: regionValue, user_type: userTypeValue, password: passwordValue }))
  const payload = {
  full_name: fullNameValue,
  signup_method: signupMethodValue,
@@ -6734,7 +6744,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  email: signupMethodValue === 'email' ? emailValue : undefined,
  country: countryValue,
  region: regionValue,
- user_type: signup.user_type,
+ user_type: userTypeValue,
  password: passwordValue,
  accept_terms: !!signup.accept_terms,
  accept_privacy: !!signup.accept_privacy,
@@ -6743,7 +6753,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  await api.trackAnalyticsEvent({
  event_name: 'consent_captured',
  country: signup.country,
- role_hint: signup.user_type,
+ role_hint: userTypeValue,
  properties: {
  accept_terms: !!signup.accept_terms,
  accept_privacy: !!signup.accept_privacy,
@@ -6785,7 +6795,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  <input className='input' name='country' autoComplete='country-name' placeholder='Country (any code or name, e.g. US, KE, Brazil)' value={signup.country} onChange={e => setSignup({ ...signup, country: e.target.value })} onInput={e => setSignup({ ...signup, country: e.target.value })} required />
  <input className='input' name='region' autoComplete='address-level1' placeholder='Region' value={signup.region} onChange={e => setSignup({ ...signup, region: e.target.value })} onInput={e => setSignup({ ...signup, region: e.target.value })} required />
  </div>
- <select className='input' value={signup.user_type} onChange={e => setSignup({ ...signup, user_type: e.target.value })}>{userTypes.map(u => <option key={u}>{u}</option>)}</select>
+ <select className='input' name='user_type' value={signup.user_type} onChange={e => setSignup({ ...signup, user_type: coerceValidUserType(e.target.value) })}>{userTypes.map(u => <option key={u} value={u}>{u}</option>)}</select>
  <input className='input' name='password' autoComplete='new-password' type='password' placeholder={t('Password','Mot de passe','密码')} value={signup.password} onChange={e => setSignup({ ...signup, password: e.target.value })} onInput={e => setSignup({ ...signup, password: e.target.value })} required />
  <div className='panel' style={{padding:8, background:'#f8fafc'}}>
  <label style={{display:'block',fontSize:'.84rem'}}><input type='checkbox' checked={signup.accept_terms} onChange={e => setSignup({ ...signup, accept_terms: e.target.checked })} /> I agree to Terms of Service.</label>
@@ -6834,7 +6844,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
      email: signup.signup_method === 'email' ? emailValue : undefined,
      country: signup.country || 'GH',
      region: signup.region || '',
-     user_type: signup.user_type || 'Farmer',
+     user_type: coerceValidUserType(signup.user_type),
      password: signup.password || 'changeme',
      accept_terms: !!signup.accept_terms,
      accept_privacy: !!signup.accept_privacy,
@@ -12292,7 +12302,7 @@ function WhyvoResetApp() {
     phone,
     country: phoneCountry.isoHint,
     region: phoneCountry.name,
-    user_type: 'Farmer',
+    user_type: DEFAULT_USER_TYPE,
     accept_terms: !!consentPayload.accept_terms,
     accept_privacy: !!consentPayload.accept_privacy,
     consent_analytics: !!consentPayload.consent_analytics,
