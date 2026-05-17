@@ -11913,6 +11913,7 @@ function WhyvoResetApp() {
  const [threadsLoading, setThreadsLoading] = useState(false)
  const [messagesLoading, setMessagesLoading] = useState(false)
  const [authMode, setAuthMode] = useState('login')
+ const [authStep, setAuthStep] = useState('welcome')
  const [authForm, setAuthForm] = useState({ phone: '', email: '', password: '', full_name: '' })
  const [authFeedback, setAuthFeedback] = useState('')
  const [draft, setDraft] = useState('')
@@ -12082,6 +12083,12 @@ function WhyvoResetApp() {
   }
  }
 
+ const openAuthForm = (mode = 'register') => {
+  setAuthMode(mode)
+  setAuthStep('form')
+  setAuthFeedback('')
+ }
+
  const sendMessage = async () => {
   const text = String(draft || '').trim()
   const targetUserId = threadView?.user?.user_id || selectedUserId
@@ -12148,9 +12155,27 @@ function WhyvoResetApp() {
 
  if (!me) {
   return <div className='whyvo-reset-shell whyvo-auth-screen'>
-   <form className='whyvo-auth-card whyvo-auth-card-mobile' onSubmit={submitAuth}>
-    <div className='whyvo-auth-badge'>Whyvo</div>
-    <strong style={{ fontSize: '1.45rem' }}>Open your chats</strong>
+   {authStep === 'welcome' ? <section className='whyvo-welcome-card whyvo-auth-card-mobile'>
+    <div className='whyvo-welcome-art' aria-hidden='true'>
+     <div className='whyvo-welcome-art-glow' />
+     <img className='whyvo-welcome-logo' src='/assets/whyvo-app-icon.jpg' alt='Whyvo' />
+    </div>
+    <div className='whyvo-auth-badge whyvo-auth-badge-welcome'>Whyvo</div>
+    <div className='whyvo-welcome-copy'>
+     <h1>Welcome to Whyvo</h1>
+     <p>Private messaging, calling, and community updates in one calm space.</p>
+    </div>
+    <div className='whyvo-welcome-legal'>
+     By tapping <strong>Agree &amp; continue</strong>, you confirm that you have read and accept the <a href='/terms-of-service.html' target='_blank' rel='noreferrer'>Terms</a> and <a href='/privacy-policy.html' target='_blank' rel='noreferrer'>Privacy Policy</a> for Whyvo.
+    </div>
+    <button className='whyvo-primary-cta' type='button' onClick={() => openAuthForm('register')}>Agree &amp; continue</button>
+    <button className='whyvo-text-action' type='button' onClick={() => openAuthForm('login')}>I already have an account</button>
+   </section> : <form className='whyvo-auth-card whyvo-auth-card-mobile whyvo-auth-form-card' onSubmit={submitAuth}>
+    <div className='whyvo-auth-badge'>Whyvo account</div>
+    <div className='whyvo-auth-heading'>
+     <strong>{authMode === 'login' ? 'Sign in to continue' : 'Create your Whyvo account'}</strong>
+     <span>{authMode === 'login' ? 'Use your existing details to open Whyvo.' : 'Your account gives you access to chats, calls, and community spaces.'}</span>
+    </div>
     <div className='tabs compact-tabs'>
      <button type='button' className={`tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => setAuthMode('login')}>Sign in</button>
      <button type='button' className={`tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => setAuthMode('register')}>Create account</button>
@@ -12160,8 +12185,9 @@ function WhyvoResetApp() {
     <input className='input' placeholder='Phone' value={authForm.phone} onChange={(e) => setAuthForm(prev => ({ ...prev, phone: e.target.value }))} />
     <input className='input' type='password' placeholder='Password' value={authForm.password} onChange={(e) => setAuthForm(prev => ({ ...prev, password: e.target.value }))} />
     {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
-    <button className='btn btn-dark' type='submit'>{authMode === 'login' ? 'Open Whyvo' : 'Create account'}</button>
-   </form>
+    <button className='btn btn-dark whyvo-auth-submit' type='submit'>{authMode === 'login' ? 'Open Whyvo' : 'Create account'}</button>
+    <button className='whyvo-text-action whyvo-back-action' type='button' onClick={() => setAuthStep('welcome')}>Back</button>
+   </form>}
   </div>
  }
 
