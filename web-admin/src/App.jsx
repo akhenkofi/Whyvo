@@ -11902,6 +11902,20 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
 }
 
 function WhyvoResetApp() {
+ const WHYVO_LAST_PHONE_KEY = 'whyvo_last_phone'
+ const WHYVO_KNOWN_PHONES_KEY = 'whyvo_known_phones'
+ const WHYVO_LAST_COUNTRY_KEY = 'whyvo_last_country'
+ const WHYVO_AUTH_SEED = 'whyvo-quiet-launch-v1'
+ const notificationSupported = typeof window !== 'undefined' && 'Notification' in window
+ const contactsSupported = typeof navigator !== 'undefined' && !!navigator.contacts?.select
+ const countries = [
+  { code: 'US', name: 'United States', dial: '+1', isoHint: 'US' },
+  { code: 'GH', name: 'Ghana', dial: '+233', isoHint: 'GH' },
+  { code: 'NG', name: 'Nigeria', dial: '+234', isoHint: 'NG' },
+  { code: 'BF', name: 'Burkina Faso', dial: '+226', isoHint: 'BF' },
+  { code: 'GB', name: 'United Kingdom', dial: '+44', isoHint: 'GB' },
+  { code: 'CA', name: 'Canada', dial: '+1', isoHint: 'CA' },
+ ]
  const [token, setToken] = useState(() => {
   try { return localStorage.getItem('farmsavior_token') || '' } catch { return '' }
  })
@@ -11912,9 +11926,8 @@ function WhyvoResetApp() {
  const [loading, setLoading] = useState(true)
  const [threadsLoading, setThreadsLoading] = useState(false)
  const [messagesLoading, setMessagesLoading] = useState(false)
- const [authMode, setAuthMode] = useState('login')
- const [authStep, setAuthStep] = useState('welcome')
- const [authForm, setAuthForm] = useState({ phone: '', email: '', password: '', full_name: '' })
+ const [authStep, setAuthStep] = useState('splash')
+ const [authLoading, setAuthLoading] = useState(false)
  const [authFeedback, setAuthFeedback] = useState('')
  const [draft, setDraft] = useState('')
  const [shellTab, setShellTab] = useState('chats')
@@ -11924,6 +11937,28 @@ function WhyvoResetApp() {
  const [activeCall, setActiveCall] = useState(null)
  const [callInboxCursor, setCallInboxCursor] = useState(0)
  const [incomingCall, setIncomingCall] = useState(null)
+ const [countryCode, setCountryCode] = useState(() => {
+  try { return localStorage.getItem(WHYVO_LAST_COUNTRY_KEY) || 'US' } catch { return 'US' }
+ })
+ const [phoneInput, setPhoneInput] = useState('')
+ const [phoneDigits, setPhoneDigits] = useState('')
+ const [pendingPhone, setPendingPhone] = useState('')
+ const [showConfirmModal, setShowConfirmModal] = useState(false)
+ const [pinInput, setPinInput] = useState('')
+ const [contactsPromptOpen, setContactsPromptOpen] = useState(false)
+ const [contactsStatus, setContactsStatus] = useState('idle')
+ const [contactsFeedback, setContactsFeedback] = useState('')
+ const [notificationStatus, setNotificationStatus] = useState(() => {
+  if (!notificationSupported) return 'unsupported'
+  return Notification.permission || 'default'
+ })
+
+ const country = countries.find((item) => item.code === countryCode) || countries[0]
+ const normalizedDigits = String(phoneDigits || '').replace(/\D/g, '')
+ const hasValidPhone = normalizedDigits.length >= 7
+ const formattedPhone = `${country.dial}${normalizedDigits}`
+ const maskedPhone = hasValidPhone ? `${country.dial} ${normalizedDigits}` : ''
+ const generatedPin = normalizedDigits.slice(-6).padStart(6, '0')
 
  const sortedThreads = useMemo(() => (threads || []).slice().sort((a, b) => {
   const aTime = new Date(a?.last_message?.created_at || a?.updated_at || 0).getTime()
@@ -11959,6 +11994,29 @@ function WhyvoResetApp() {
   return text
  }
  const initials = (label = '') => String(label).split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'WY'
+
+ const readKnownPhones = () => {
+  try {
+   const parsed = JSON.parse(localStorage.getItem(WHYVO_KNOWN_PHONES_KEY) || '[]')
+   return Array.isArray(parsed) ? parsed : []
+  } catch {
+   return []
+  }
+ }
+
+ const rememberPhone = (phone) => {
+  try {
+   const next = [...new Set([phone, ...readKnownPhones()])]
+   localStorage.setItem(WHYVO_KNOWN_PHONES_KEY, JSON.stringify(next.slice(0, 25)))
+   localStorage.setItem(WHYVO_LAST_PHONE_KEY, phone)
+   localStorage.setItem(WHYVO_LAST_COUNTRY_KEY, country.code)
+  } catch {}
+ }
+
+ const isReturningPhone = (phone) => readKnownPhones().includes(phone)
+ const whyvoPasswordForPhone = (phone) => `Whyvo::${phone}::${WHYVO_AUTH_SEED}`
+ const whyvoEmailForPhone = (phone) => `whyvo.${String(phone || '').replace(/[^\d]/g, '')}@whyvo.chat`
+ const whyvoNameForPhone = (phone) => `Whyvo member ${String(phone || '').slice(-4)}`
 
  const syncSettingsFromMe = (nextMe) => {
   setSettingsForm({
@@ -12001,6 +12059,33 @@ function WhyvoResetApp() {
   }
  }
 
+ const requestNotificationPermissionIfNeeded = async () => {
+  if (!notificationSupported) {
+   setNotificationStatus('unsupported')
+   return 'unsupported'
+  }
+  if (Notification.permission !== 'default') {
+   setNotificationStatus(Notification.permission)
+   return Notification.permission
+  }
+  try {
+   const next = await Notification.requestPermission()
+   setNotificationStatus(next)
+   return next
+  } catch {
+   setNotificationStatus('default')
+   return 'default'
+  }
+ }
+
+ const persistToken = (nextToken) => {
+  try {
+   if (nextToken) localStorage.setItem('farmsavior_token', nextToken)
+   else localStorage.removeItem('farmsavior_token')
+  } catch {}
+  setToken(nextToken || '')
+ }
+
  const bootstrap = async () => {
   setLoading(true)
   try {
@@ -12019,6 +12104,13 @@ function WhyvoResetApp() {
    setLoading(false)
   }
  }
+
+ useEffect(() => {
+  const timer = setTimeout(() => {
+   setAuthStep((current) => current === 'splash' ? 'welcome' : current)
+  }, 700)
+  return () => clearTimeout(timer)
+ }, [])
 
  useEffect(() => {
   bootstrap()
@@ -12040,53 +12132,89 @@ function WhyvoResetApp() {
     const inbox = await api.pollCommunityCallSignalInbox(callInboxCursor)
     const items = inbox?.items || inbox || []
     if (items.length) {
-     const newest = items[items.length - 1]
-     setCallInboxCursor(Number(newest?.id || callInboxCursor))
-     const offer = items.slice().reverse().find(item => String(item?.type || '').toLowerCase() === 'offer')
-     if (offer?.data?.fromUserId && Number(offer?.data?.fromUserId) !== Number(me?.id || 0)) {
-      setIncomingCall(offer.data)
-     }
+      const newest = items[items.length - 1]
+      setCallInboxCursor(Number(newest?.id || callInboxCursor))
+      const offer = items.slice().reverse().find(item => String(item?.type || '').toLowerCase() === 'offer')
+      if (offer?.data?.fromUserId && Number(offer?.data?.fromUserId) !== Number(me?.id || 0)) {
+       setIncomingCall(offer.data)
+      }
     }
    } catch {}
   }, 5000)
   return () => clearInterval(timer)
  }, [token, me, callInboxCursor])
 
- const persistToken = (nextToken) => {
-  try {
-   if (nextToken) localStorage.setItem('farmsavior_token', nextToken)
-   else localStorage.removeItem('farmsavior_token')
-  } catch {}
-  setToken(nextToken || '')
+ useEffect(() => {
+  if (!me) return
+  setShellTab('chats')
+  setContactsPromptOpen(true)
+ }, [me?.id])
+
+ const openPhoneStep = () => {
+  setAuthFeedback('')
+  setAuthStep('phone')
  }
 
- const submitAuth = async (event) => {
-  event.preventDefault()
+ const continueFromPhoneEntry = () => {
+  if (!hasValidPhone) return
+  setPendingPhone(formattedPhone)
+  setShowConfirmModal(true)
+ }
+
+ const proceedWithPhone = async () => {
+  if (!pendingPhone) return
+  setShowConfirmModal(false)
   setAuthFeedback('')
+  await requestNotificationPermissionIfNeeded()
+  setAuthStep('checking')
+  await new Promise((resolve) => setTimeout(resolve, 900))
+  if (isReturningPhone(pendingPhone)) {
+   setPinInput('')
+   setAuthStep('pin')
+   return
+  }
+  setAuthLoading(true)
   try {
-   if (authMode === 'login') {
-    const identifier = normalizeIdentifier(authForm.email || authForm.phone)
-    const res = await api.login({ identifier, password: authForm.password })
-    persistToken(res?.access_token || '')
-   } else {
+   const password = whyvoPasswordForPhone(pendingPhone)
+   try {
     await api.register({
-     full_name: authForm.full_name,
-     email: authForm.email || undefined,
-     phone: authForm.phone ? normalizePhone(authForm.phone) : undefined,
-     password: authForm.password,
+     full_name: whyvoNameForPhone(pendingPhone),
+     email: whyvoEmailForPhone(pendingPhone),
+     phone: pendingPhone,
+     password,
+     country: country.isoHint,
+     region: country.name,
     })
-    setAuthMode('login')
-    setAuthFeedback('Account created. Sign in to open chats.')
-   }
+   } catch {}
+   const res = await api.login({ identifier: pendingPhone, password })
+   rememberPhone(pendingPhone)
+   persistToken(res?.access_token || '')
   } catch (error) {
    setAuthFeedback(errMsg(error))
+   setAuthStep('phone')
+  } finally {
+   setAuthLoading(false)
   }
  }
 
- const openAuthForm = (mode = 'register') => {
-  setAuthMode(mode)
-  setAuthStep('form')
+ const submitPin = async (event) => {
+  event.preventDefault()
+  if (!pendingPhone) return
+  if (pinInput !== generatedPin) {
+   setAuthFeedback('That PIN does not match this Whyvo number yet.')
+   return
+  }
+  setAuthLoading(true)
   setAuthFeedback('')
+  try {
+   const res = await api.login({ identifier: pendingPhone, password: whyvoPasswordForPhone(pendingPhone) })
+   rememberPhone(pendingPhone)
+   persistToken(res?.access_token || '')
+  } catch (error) {
+   setAuthFeedback(errMsg(error))
+  } finally {
+   setAuthLoading(false)
+  }
  }
 
  const sendMessage = async () => {
@@ -12149,8 +12277,19 @@ function WhyvoResetApp() {
   { label: 'Calls', value: sortedThreads.filter(item => String(item?.last_message?.text || '').includes('CALL_SIGNAL:')).length },
  ]
 
- if (loading) {
-  return <div className='whyvo-reset-shell'><div className='whyvo-splash-card'><strong>Opening Whyvo…</strong><span>Resetting into the new chats-first workspace.</span></div></div>
+ if (loading || authStep === 'splash') {
+  return <div className='app-splash' style={{ background: '#fff' }}>
+   <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '56px 24px 30px' }}>
+    <div />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+     <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo' style={{ width: 72, height: 72, borderRadius: 20, objectFit: 'cover' }} />
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+     <div style={{ fontSize: '.92rem', color: '#6b7280' }}>from</div>
+     <div style={{ fontSize: '1.12rem', color: '#111827', fontWeight: 700 }}>Whyvo</div>
+    </div>
+   </div>
+  </div>
  }
 
  if (!me) {
@@ -12163,31 +12302,70 @@ function WhyvoResetApp() {
     <div className='whyvo-auth-badge whyvo-auth-badge-welcome'>Whyvo</div>
     <div className='whyvo-welcome-copy'>
      <h1>Welcome to Whyvo</h1>
-     <p>Private messaging, calling, and community updates in one calm space.</p>
+     <p>Talk with people you know, catch updates fast, and keep your conversations feeling simple.</p>
     </div>
     <div className='whyvo-welcome-legal'>
      By tapping <strong>Agree &amp; continue</strong>, you confirm that you have read and accept the <a href='/terms-of-service.html' target='_blank' rel='noreferrer'>Terms</a> and <a href='/privacy-policy.html' target='_blank' rel='noreferrer'>Privacy Policy</a> for Whyvo.
     </div>
-    <button className='whyvo-primary-cta' type='button' onClick={() => openAuthForm('register')}>Agree &amp; continue</button>
-    <button className='whyvo-text-action' type='button' onClick={() => openAuthForm('login')}>I already have an account</button>
-   </section> : <form className='whyvo-auth-card whyvo-auth-card-mobile whyvo-auth-form-card' onSubmit={submitAuth}>
-    <div className='whyvo-auth-badge'>Whyvo account</div>
+    <button className='whyvo-primary-cta' type='button' onClick={openPhoneStep}>Agree &amp; continue</button>
+   </section> : authStep === 'phone' ? <section className='whyvo-auth-card whyvo-auth-card-mobile whyvo-auth-form-card'>
+    <div className='whyvo-auth-badge'>Whyvo setup</div>
     <div className='whyvo-auth-heading'>
-     <strong>{authMode === 'login' ? 'Sign in to continue' : 'Create your Whyvo account'}</strong>
-     <span>{authMode === 'login' ? 'Use your existing details to open Whyvo.' : 'Your account gives you access to chats, calls, and community spaces.'}</span>
+     <strong>Enter your phone number</strong>
+     <span>Choose your country, then enter the number you want to use on Whyvo. We’ll check whether this device already knows your account.</span>
     </div>
-    <div className='tabs compact-tabs'>
-     <button type='button' className={`tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => setAuthMode('login')}>Sign in</button>
-     <button type='button' className={`tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => setAuthMode('register')}>Create account</button>
-    </div>
-    {authMode === 'register' ? <input className='input' placeholder='Full name' value={authForm.full_name} onChange={(e) => setAuthForm(prev => ({ ...prev, full_name: e.target.value }))} /> : null}
-    <input className='input' placeholder='Email' value={authForm.email} onChange={(e) => setAuthForm(prev => ({ ...prev, email: e.target.value }))} />
-    <input className='input' placeholder='Phone' value={authForm.phone} onChange={(e) => setAuthForm(prev => ({ ...prev, phone: e.target.value }))} />
-    <input className='input' type='password' placeholder='Password' value={authForm.password} onChange={(e) => setAuthForm(prev => ({ ...prev, password: e.target.value }))} />
+    <label className='whyvo-field'>
+     <span>Country</span>
+     <select className='input' value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>
+      {countries.map((item) => <option key={item.code} value={item.code}>{item.name} ({item.dial})</option>)}
+     </select>
+    </label>
+    <label className='whyvo-field'>
+     <span>Phone number</span>
+     <div style={{ display: 'grid', gridTemplateColumns: '104px 1fr', gap: 10 }}>
+      <input className='input' value={country.dial} readOnly />
+      <input className='input' inputMode='numeric' autoFocus placeholder='Phone number' value={phoneInput} onChange={(e) => {
+       const raw = String(e.target.value || '')
+       const digits = raw.replace(/\D/g, '')
+       setPhoneInput(raw)
+       setPhoneDigits(digits)
+      }} />
+     </div>
+    </label>
+    <div className='helper-text'>You’ll use this number to open chats, calls, and updates on Whyvo. {hasValidPhone ? `Next will continue with ${maskedPhone}.` : 'Enter at least 7 digits to continue.'}</div>
     {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
-    <button className='btn btn-dark whyvo-auth-submit' type='submit'>{authMode === 'login' ? 'Open Whyvo' : 'Create account'}</button>
+    <button className='whyvo-primary-cta whyvo-auth-submit' type='button' disabled={!hasValidPhone} onClick={continueFromPhoneEntry}>Next</button>
     <button className='whyvo-text-action whyvo-back-action' type='button' onClick={() => setAuthStep('welcome')}>Back</button>
+   </section> : authStep === 'checking' ? <section className='whyvo-auth-card whyvo-auth-card-mobile whyvo-auth-form-card'>
+    <div className='whyvo-auth-badge'>Checking account</div>
+    <div className='whyvo-auth-heading'>
+     <strong>Setting up Whyvo</strong>
+     <span>We’re preparing {pendingPhone || 'your number'} and getting your conversations ready.</span>
+    </div>
+    <div className='whyvo-inline-note'>Notifications {notificationStatus === 'granted' ? 'are on for this browser.' : notificationStatus === 'denied' ? 'were skipped for now.' : notificationStatus === 'unsupported' ? 'are not available in this browser.' : 'are being prepared.'}</div>
+   </section> : <form className='whyvo-auth-card whyvo-auth-card-mobile whyvo-auth-form-card' onSubmit={submitPin}>
+    <div className='whyvo-auth-badge'>Whyvo security</div>
+    <div className='whyvo-auth-heading'>
+     <strong>Enter your two-step PIN</strong>
+     <span>This number has been used on this device before. Enter the 6-digit Whyvo PIN to continue to Chats.</span>
+    </div>
+    <div className='whyvo-inline-note'>Number: {pendingPhone}<br />Demo device PIN for this build: <strong>{generatedPin}</strong></div>
+    <input className='input' inputMode='numeric' placeholder='6-digit PIN' value={pinInput} onChange={(e) => setPinInput(String(e.target.value || '').replace(/\D/g, '').slice(0, 6))} />
+    {authFeedback ? <div className='whyvo-inline-note'>{authFeedback}</div> : null}
+    <button className='whyvo-primary-cta whyvo-auth-submit' type='submit' disabled={authLoading || pinInput.length !== 6}>{authLoading ? 'Opening Whyvo…' : 'Next'}</button>
+    <button className='whyvo-text-action whyvo-back-action' type='button' onClick={() => setAuthStep('phone')}>Back</button>
    </form>}
+   {showConfirmModal ? <div className='lightbox'>
+    <div className='whyvo-call-sheet' style={{ textAlign: 'left' }}>
+     <div className='whyvo-auth-badge'>Confirm number</div>
+     <h3 style={{ marginBottom: 6 }}>Is this your correct number?</h3>
+     <p>We’ll use <strong>{pendingPhone}</strong> for your Whyvo account on this device.</p>
+     <div className='card-actions'>
+      <button type='button' className='btn' onClick={() => setShowConfirmModal(false)}>No</button>
+      <button type='button' className='btn btn-dark' onClick={proceedWithPhone}>Yes</button>
+     </div>
+    </div>
+   </div> : null}
   </div>
  }
 
@@ -12249,6 +12427,34 @@ function WhyvoResetApp() {
     {!filteredThreads.length ? <div className='whyvo-empty-card'>{sortedThreads.length ? 'No chats match your search.' : 'No community threads found yet.'}</div> : null}
    </div>
    <div className='whyvo-encryption-note'>Your personal messages are end-to-end encrypted.</div>
+   {contactsPromptOpen ? <div className='lightbox'>
+    <div className='whyvo-call-sheet' style={{ textAlign: 'left' }}>
+     <div className='whyvo-auth-badge'>Find people faster</div>
+     <h3>Allow contacts on Whyvo?</h3>
+     <p>Whyvo can use your contacts to help you spot people you already know once you’re inside Chats.</p>
+     {contactsFeedback ? <div className='whyvo-inline-note'>{contactsFeedback}</div> : null}
+     <div className='card-actions'>
+      <button type='button' className='btn' onClick={() => { setContactsPromptOpen(false); setContactsStatus('skipped') }}>Not now</button>
+      <button type='button' className='btn btn-dark' onClick={async () => {
+       if (!contactsSupported) {
+        setContactsStatus('stubbed')
+        setContactsFeedback('Browser contacts access is not available here, so this prompt is visual only in this build.')
+        setTimeout(() => setContactsPromptOpen(false), 1200)
+        return
+       }
+       try {
+        setContactsStatus('requesting')
+        await navigator.contacts.select(['name', 'tel'], { multiple: true })
+        setContactsStatus('granted')
+        setContactsPromptOpen(false)
+       } catch {
+        setContactsStatus('denied')
+        setContactsFeedback('Contacts access was dismissed. You can allow it later in your browser settings.')
+       }
+      }}>{contactsStatus === 'requesting' ? 'Allowing…' : 'Continue'}</button>
+     </div>
+    </div>
+   </div> : null}
   </main>}
 
   <nav className='whyvo-bottom-tabbar' aria-label='Primary'>
