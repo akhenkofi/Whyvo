@@ -4,6 +4,7 @@ import hashlib
 import time
 import hmac
 import smtplib
+import logging
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 from typing import Optional, Any
@@ -54,6 +55,7 @@ from jose import jwt as jose_jwt
 from app.core.data_lake import write_jsonl, write_snapshot
 
 router = APIRouter(prefix='/api/v1')
+logger = logging.getLogger(__name__)
 
 
 def _calculate_payouts(order):
@@ -1844,8 +1846,8 @@ def _enforce_livestock_record_limit(user_id: Optional[int], db: Session):
 def _twilio_from_for_destination(destination: str) -> str:
     dest = str(destination or '').strip()
     sender = str(settings.TWILIO_FROM_NUMBER or '').strip()
-    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or '').strip()
-    if dest.startswith('+233') and gh_sender:
+    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or 'SheepGhana').strip()
+    if dest.startswith('+233'):
         return gh_sender
     return sender
 
@@ -1853,17 +1855,32 @@ def _twilio_from_for_destination(destination: str) -> str:
 def _validate_twilio_sender_for_destination(destination: str) -> Optional[str]:
     dest = str(destination or '').strip()
     sender = _twilio_from_for_destination(dest)
-    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or '').strip()
-    if dest.startswith('+233') and gh_sender and sender != gh_sender:
+    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or 'SheepGhana').strip()
+    if dest.startswith('+233') and sender != gh_sender:
         return f"Ghana SMS requires sender ID {gh_sender}"
     if not sender:
         return 'Twilio sender is not configured'
     return None
 
 
+def _mask_destination(value: str) -> str:
+    s = str(value or '').strip()
+    if not s:
+        return ''
+    if '@' in s:
+        local, _, domain = s.partition('@')
+        local_masked = (local[:2] + '***') if len(local) > 2 else '***'
+        return f'{local_masked}@{domain}' if domain else local_masked
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    if len(digits) <= 4:
+        return '***'
+    return f"***{digits[-4:]}"
+
+
 def _send_otp(destination: str, method: str, code: str):
     app_name = str(getattr(settings, 'APP_NAME', 'Whyvo') or 'Whyvo').replace(' API', '').strip() or 'Whyvo'
     message = f"Your {app_name} OTP is {code}. It expires soon."
+    masked_destination = _mask_destination(destination)
     if method == 'email' and settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASS:
         try:
             msg = EmailMessage()
@@ -1881,14 +1898,21 @@ def _send_otp(destination: str, method: str, code: str):
                 smtp.ehlo()
                 smtp.login(smtp_user, smtp_pass)
                 smtp.send_message(msg)
-            return {'sent': True, 'channel': 'email'}
+            logger.info('OTP email sent to %s', masked_destination)
+            return {'sent': True, 'channel': 'email', 'provider': 'smtp'}
         except Exception as e:
-            return {'sent': False, 'channel': 'email', 'error': str(e)}
+            logger.warning('OTP email send failed for %s: %s', masked_destination, e)
+            return {'sent': False, 'channel': 'email', 'provider': 'smtp', 'error': str(e)}
 
-    if method == 'phone' and settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN:
+    if method == 'phone':
+        if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
+            error = 'Twilio credentials are not configured'
+            logger.warning('OTP SMS skipped for %s: %s', masked_destination, error)
+            return {'sent': False, 'channel': 'phone', 'provider': 'twilio', 'error': error}
         sender_error = _validate_twilio_sender_for_destination(destination)
         if sender_error:
-            return {'sent': False, 'channel': 'phone', 'error': sender_error}
+            logger.warning('OTP SMS skipped for %s: %s', masked_destination, sender_error)
+            return {'sent': False, 'channel': 'phone', 'provider': 'twilio', 'error': sender_error}
         try:
             twilio_from = _twilio_from_for_destination(destination)
             url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOUNT_SID}/Messages.json"
@@ -1900,20 +1924,27 @@ def _send_otp(destination: str, method: str, code: str):
             req.add_header('Content-Type', 'application/x-www-form-urlencoded')
             with urlopen(req, timeout=12) as _:
                 pass
-            return {'sent': True, 'channel': 'phone'}
+            logger.info('OTP SMS accepted by Twilio for %s via %s', masked_destination, twilio_from)
+            return {'sent': True, 'channel': 'phone', 'provider': 'twilio'}
         except HTTPError as e:
             try:
                 raw = e.read().decode('utf-8', errors='ignore')
                 parsed = json.loads(raw) if raw else {}
                 msg = parsed.get('message') or raw or str(e)
                 code = parsed.get('code')
-                return {'sent': False, 'channel': 'phone', 'error': f"Twilio HTTP {getattr(e, 'code', 'ERR')}: {msg}" + (f" (code {code})" if code else '')}
+                error = f"Twilio HTTP {getattr(e, 'code', 'ERR')}: {msg}" + (f" (code {code})" if code else '')
+                logger.warning('OTP SMS failed for %s via Twilio: %s', masked_destination, error)
+                return {'sent': False, 'channel': 'phone', 'provider': 'twilio', 'error': error}
             except Exception:
-                return {'sent': False, 'channel': 'phone', 'error': str(e)}
+                logger.warning('OTP SMS failed for %s via Twilio: %s', masked_destination, e)
+                return {'sent': False, 'channel': 'phone', 'provider': 'twilio', 'error': str(e)}
         except Exception as e:
-            return {'sent': False, 'channel': 'phone', 'error': str(e)}
+            logger.warning('OTP SMS failed for %s via Twilio: %s', masked_destination, e)
+            return {'sent': False, 'channel': 'phone', 'provider': 'twilio', 'error': str(e)}
 
-    return {'sent': False, 'channel': method}
+    error = f'No OTP provider configured for method {method}'
+    logger.warning('OTP send skipped for %s: %s', masked_destination, error)
+    return {'sent': False, 'channel': method, 'error': error}
 
 
 @router.post('/auth/register')

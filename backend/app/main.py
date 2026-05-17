@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 def _validate_runtime_settings() -> None:
     twilio_sid = str(getattr(settings, 'TWILIO_ACCOUNT_SID', '') or '').strip()
     twilio_from = str(getattr(settings, 'TWILIO_FROM_NUMBER', '') or '').strip()
-    gh_sender = str(getattr(settings, 'GHANA_TWILIO_SENDER_ID', '') or '').strip()
-    if twilio_sid and twilio_from and gh_sender and twilio_from != gh_sender:
+    gh_sender = str(getattr(settings, 'GHANA_TWILIO_SENDER_ID', 'SheepGhana') or 'SheepGhana').strip()
+    if twilio_sid and twilio_from and twilio_from != gh_sender:
         logger.warning('TWILIO_FROM_NUMBER=%s differs from Ghana sender ID %s; Ghana OTP delivery may fail', twilio_from, gh_sender)
 
 
