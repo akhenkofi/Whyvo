@@ -1,16 +1,15 @@
 import axios from 'axios'
 
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL
-const CONFIG_ERROR_MESSAGE = 'Missing required VITE_API_BASE_URL. Refusing to fall back to production API.'
+const CONFIG_ERROR_MESSAGE = 'Missing required VITE_API_BASE_URL. Whyvo frontend will stay in offline setup mode until a backend URL is configured.'
 
-if (!rawBaseUrl) {
-  if (typeof window !== 'undefined') {
-    window.__FARMSAVIOR_CONFIG_ERROR__ = CONFIG_ERROR_MESSAGE
-  }
-  throw new Error(CONFIG_ERROR_MESSAGE)
+if (!rawBaseUrl && typeof window !== 'undefined') {
+  window.__WHYVO_CONFIG_ERROR__ = CONFIG_ERROR_MESSAGE
 }
 
-const baseURL = rawBaseUrl.replace(/^http:\/\/api\.farmsavior\.com/i, 'https://api.farmsavior.com')
+const baseURL = rawBaseUrl
+  ? rawBaseUrl.replace(/^http:\/\/api\.farmsavior\.com/i, 'https://api.farmsavior.com')
+  : ''
 
 const api = axios.create({ baseURL })
 
