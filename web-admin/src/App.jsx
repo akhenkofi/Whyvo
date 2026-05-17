@@ -11904,6 +11904,16 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
 function WhyvoResetApp() {
  const WHYVO_LAST_PHONE_KEY = 'whyvo_last_phone'
  const WHYVO_LAST_COUNTRY_KEY = 'whyvo_last_country'
+ const WHYVO_CONSENT_KEY = 'farmsavior_consent'
+ const WHYVO_DEFAULT_CONSENT = {
+  accept_terms: false,
+  accept_privacy: false,
+  consent_analytics: true,
+  consent_personalization: true,
+  consent_marketing: false,
+  consent_aggregated_insights: true,
+  consent_version: 'v1',
+ }
  const notificationSupported = typeof window !== 'undefined' && 'Notification' in window
  const contactsSupported = typeof navigator !== 'undefined' && !!navigator.contacts?.select
  const countries = [
@@ -12026,6 +12036,13 @@ function WhyvoResetApp() {
   if (!notificationSupported) return 'unsupported'
   return Notification.permission || 'default'
  })
+ const [authConsent, setAuthConsent] = useState(() => {
+  try {
+   const stored = JSON.parse(localStorage.getItem(WHYVO_CONSENT_KEY) || 'null')
+   if (stored && typeof stored === 'object') return { ...WHYVO_DEFAULT_CONSENT, ...stored }
+  } catch {}
+  return { ...WHYVO_DEFAULT_CONSENT }
+ })
 
  const country = countries.find((item) => item.code === countryCode) || countries[0]
  const normalizedDigits = String(phoneDigits || '').replace(/\D/g, '')
@@ -12074,6 +12091,18 @@ function WhyvoResetApp() {
    localStorage.setItem(WHYVO_LAST_COUNTRY_KEY, country.code)
   } catch {}
  }
+
+ const persistWhyvoConsent = (nextConsent) => {
+  const merged = { ...WHYVO_DEFAULT_CONSENT, ...(nextConsent || {}) }
+  setAuthConsent(merged)
+  try { localStorage.setItem(WHYVO_CONSENT_KEY, JSON.stringify(merged)) } catch {}
+  return merged
+ }
+
+ const acceptWhyvoConsent = () => persistWhyvoConsent({
+  accept_terms: true,
+  accept_privacy: true,
+ })
 
  const whyvoNameForPhone = (phone) => `Whyvo member ${String(phone || '').slice(-4)}`
  const sanitizeWhyvoPhoneAuthError = (error, phone) => {
@@ -12232,6 +12261,7 @@ function WhyvoResetApp() {
  }, [authStep])
 
  const openPhoneStep = () => {
+  acceptWhyvoConsent()
   setAuthFeedback('')
   setAuthStep('phone')
  }
@@ -12254,12 +12284,22 @@ function WhyvoResetApp() {
   await new Promise((resolve) => setTimeout(resolve, 900))
   setAuthLoading(true)
   try {
+   const consentPayload = authConsent.accept_terms && authConsent.accept_privacy
+    ? authConsent
+    : acceptWhyvoConsent()
    const registerRes = await api.register({
     full_name: whyvoNameForPhone(phone),
     phone,
     country: phoneCountry.isoHint,
     region: phoneCountry.name,
     user_type: 'Farmer',
+    accept_terms: !!consentPayload.accept_terms,
+    accept_privacy: !!consentPayload.accept_privacy,
+    consent_analytics: !!consentPayload.consent_analytics,
+    consent_personalization: !!consentPayload.consent_personalization,
+    consent_marketing: !!consentPayload.consent_marketing,
+    consent_aggregated_insights: !!consentPayload.consent_aggregated_insights,
+    consent_version: consentPayload.consent_version || 'v1',
    })
    const destination = registerRes?.otp_destination || phone
    setOtpDestination(destination)
