@@ -1,5 +1,5 @@
 #!/bin/zsh
-ROOT="/Users/akhen/Desktop/Openclaw/FarmSavior"
+ROOT="/Users/akhen/Desktop/Openclaw/Whyvo"
 RUN="$ROOT/.run"
 
 check(){

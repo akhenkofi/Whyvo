@@ -1,5 +1,5 @@
 #!/bin/zsh
-ROOT="/Users/akhen/Desktop/Openclaw/FarmSavior"
+ROOT="/Users/akhen/Desktop/Openclaw/Whyvo"
 RUN="$ROOT/.run"
 
 killfile(){
@@ -16,4 +16,4 @@ killfile "$RUN/backend.pid"
 pkill -f "uvicorn app.main:app --reload --port 8000" 2>/dev/null || true
 pkill -f "vite --port 5173" 2>/dev/null || true
 
-echo "FarmSavior stopped."
+echo "Whyvo stopped."

@@ -11,10 +11,10 @@ ACTIVE_ENV_FILE = ENV_FILE if ENV_FILE.exists() else FALLBACK_ENV_FILE
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=str(ACTIVE_ENV_FILE), env_file_encoding='utf-8', extra='ignore')
 
-    APP_NAME: str = 'FarmSavior API'
+    APP_NAME: str = 'Whyvo API'
     SECRET_KEY: str = 'change-me'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 5256000
-    DATABASE_URL: str = 'sqlite:///./farmsavior.db'
+    DATABASE_URL: str = 'sqlite:///./whyvo.db'
     OTP_BYPASS_CODE: str = '123456'
 
     # OTP delivery (optional providers)
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ''
     SMTP_PASS: str = ''
-    SMTP_FROM: str = 'no-reply@farmsavior.com'
+    SMTP_FROM: str = 'no-reply@whyvo.app'
     TWILIO_ACCOUNT_SID: str = ''
     TWILIO_AUTH_TOKEN: str = ''
     TWILIO_FROM_NUMBER: str = ''
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     PAYSTACK_SECRET_KEY: str = ''
     PAYSTACK_PUBLIC_KEY: str = ''
     PAYSTACK_WEBHOOK_SECRET: str = ''
-    PAYSTACK_CALLBACK_URL: str = 'https://www.farmsavior.com/?public=0&go=onboarding'
+    PAYSTACK_CALLBACK_URL: str = 'https://www.whyvo.app/'
 
     # Push notifications (optional)
     FCM_SERVER_KEY: str = ''  # legacy fallback
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     AGORA_APP_CERTIFICATE: str = ''
 
     # App security
-    FRONTEND_ORIGINS: str = 'https://www.farmsavior.com,https://api.farmsavior.com'
+    FRONTEND_ORIGINS: str = 'https://www.whyvo.app,https://api.whyvo.app'
     FORCE_HTTPS: bool = True
 
     # Optional external AI connectors
@@ -70,6 +70,6 @@ def resolved_database_url() -> str:
     stable_dir = base_dir / 'data' / 'persistent'
     stable_dir.mkdir(parents=True, exist_ok=True)
 
-    name = Path(sqlite_path).name or 'farmsavior.db'
+    name = Path(sqlite_path).name or 'whyvo.db'
     stable_path = (stable_dir / name).resolve()
     return f"sqlite:///{stable_path}"

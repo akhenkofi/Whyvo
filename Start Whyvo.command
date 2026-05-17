@@ -1,6 +1,6 @@
 #!/bin/zsh
 set -e
-ROOT="/Users/akhen/Desktop/Openclaw/FarmSavior-live"
+ROOT="/Users/akhen/Desktop/Openclaw/Whyvo"
 RUN="$ROOT/.run"
 mkdir -p "$RUN"
 
@@ -21,7 +21,7 @@ python seeds/seed_data.py >/dev/null 2>&1 || true
 nohup .venv/bin/python -m uvicorn app.main:app --reload --port 8000 > "$RUN/backend.log" 2>&1 &
 echo $! > "$RUN/backend.pid"
 
-# Web admin
+# Web app
 cd "$ROOT/web-admin"
 [ -f .env ] || cp .env.example .env
 [ -d node_modules ] || npm install
@@ -31,6 +31,6 @@ echo $! > "$RUN/web.pid"
 sleep 3
 open "http://127.0.0.1:5173" || true
 
-echo "FarmSavior started."
+echo "Whyvo started."
 echo "Web: http://127.0.0.1:5173"
 echo "API docs (manual): http://127.0.0.1:8000/docs"
