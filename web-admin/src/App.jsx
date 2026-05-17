@@ -21,14 +21,14 @@ class AppErrorBoundary extends React.Component {
  }
 
  componentDidCatch(error, info) {
- console.error('FarmSavior UI crash', error, info)
+ console.error('Whyvo UI crash', error, info)
  }
 
  render() {
  if (this.state.hasError) {
  return <div className='crash-shell'>
  <div className='crash-card'>
- <h2>FarmSavior hit a problem</h2>
+ <h2>Whyvo hit a problem</h2>
  <p>The app recovered into safe mode instead of showing a blank screen.</p>
  <div className='helper-text' style={{marginBottom:12}}>Error: {this.state.message}</div>
  <div className='card-actions'>
@@ -2859,8 +2859,14 @@ function AppInner() {
  const initialMarketplaceQuery = searchParams.get('q') || ''
  const initialAaduTarget = initialScrollTarget === 'aadu'
  const mappedGo = (explicitGo === 'poultry-academy' ? 'poultry-university' : (explicitGo === 'sheep-academy' ? 'sheep-university' : (explicitGo === 'goat-academy' ? 'goat-university' : (explicitGo === 'cattle-academy' ? 'cattle-university' : explicitGo))))
- const stickySections = new Set(['payments','livestock-records','poultry-university','sheep-university','goat-university','cattle-university','community','world-chat','ai-disease'])
- const initialSection = (mappedGo && mappedGo !== 'onboarding' ? mappedGo : 'home')
+ const allowedPrimarySections = new Set(['home', 'community', 'world-chat', 'onboarding', 'admin'])
+ const stickySections = new Set(['community','world-chat'])
+ const sanitizePrimarySection = (section) => {
+  const value = String(section || '').trim()
+  if (allowedPrimarySections.has(value)) return value
+  return 'home'
+ }
+ const initialSection = sanitizePrimarySection(mappedGo && mappedGo !== 'onboarding' ? mappedGo : 'home')
  const [token, setToken] = useState(localStorage.getItem('farmsavior_token'))
  const [authMode, setAuthMode] = useState('login')
  const [portalType, setPortalType] = useState('main')
@@ -2986,8 +2992,11 @@ const [serviceEditType, setServiceEditType] = useState('logistics')
  const [pendingScrollTarget, setPendingScrollTarget] = useState(initialScrollTarget === 'aadu' ? 'account-aadu-hero' : '')
 const [accountAaduIntent, setAccountAaduIntent] = useState(initialScrollTarget === 'aadu')
  useEffect(() => {
+  if (!allowedPrimarySections.has(active)) {
+   setActive('home')
+   return
+  }
   try {
-   const stickySections = new Set(['payments','livestock-records','poultry-university','sheep-university','goat-university','cattle-university','community','world-chat','ai-disease'])
    if (stickySections.has(active)) localStorage.setItem('farmsavior_resume_section', active)
    else if (active === 'home' || active === 'onboarding') localStorage.removeItem('farmsavior_resume_section')
   } catch {}
@@ -6040,32 +6049,15 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  persistRecents(recentSearches, next)
  }
 
- const baseMenu = ['home', 'ai-disease', 'aadu', 'livestock-records', 'onboarding', 'marketplace', 'games', 'payments', 'alerts', 'maps', 'world-chat', 'community', 'government']
- const menu = isAdminUser ? ['home', 'dashboard', ...baseMenu.slice(1), 'admin'] : baseMenu
+ const baseMenu = ['home', 'community', 'world-chat', 'onboarding']
+ const menu = isAdminUser ? ['home', 'community', 'world-chat', 'onboarding', 'admin'] : baseMenu
  const menuLabel = (m) => ({
  'home':t('home','home','首页'),
  'dashboard':t('dashboard','dashboard','仪表盘'),
  'onboarding':t('My Account Settings','Paramètres du compte','账户设置'),
- 'marketplace':t('Marketplace','Marketplace','市场'),
- 'games':t('Games','Jeux','游戏'),
- 'products':t('products','products','产品'),
- 'livestock':t('livestock','livestock','牲畜'),
- 'services':t('services','services','服务'),
- 'payments':t('payments','payments','支付'),
- 'alerts':t('alerts','alerts','预警'),
- 'maps':t('maps','maps','地图'),
  'messaging':t('messaging','messaging','消息'),
  'world-chat':t('World Chat','World Chat','世界聊天'),
- 'community':t('FarmSavior Community','FarmSavior Community','FarmSavior 社区'),
- 'ai-disease':t('AI Disease Analyzer','AI Disease Analyzer','AI 病害分析'),
- 'aadu':'AAD University',
- 'poultry-university':'Poultry University',
- 'sheep-university':'Sheep University',
- 'goat-university':'Goat University',
- 'cattle-university':'Cattle University',
- 'plant-id':t('AI Plant Identifier','AI Plant Identifier','AI 植物识别'),
- 'pest-id':t('AI Insect & Pest Identifier','AI Insect & Pest Identifier','AI 昆虫与害虫识别'),
- 'government':t('Government Programs','Government Programs','政府项目'),
+ 'community':t('Chats','Discussions','聊天'),
  'admin':t('admin','admin','管理员')
  }[m] || m)
 
@@ -6589,7 +6581,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  <div className='authCard' style={{width:'min(1180px,98vw)'}}>
  <div className='panel' style={{background:'linear-gradient(135deg,#0f172a 0%,#0e7490 42%,#16a34a 100%)', color:'#fff', border:'1px solid rgba(255,255,255,.08)', boxShadow:'0 28px 70px rgba(15,23,42,.22)', overflow:'hidden', position:'relative'}}>
  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
- <img src='/assets/farmsavior-logo.jpg' alt='FarmSavior logo' style={{width:72,height:72,borderRadius:12,objectFit:'cover',border:'2px solid rgba(255,255,255,.3)'}} />
+ <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo logo' style={{width:72,height:72,borderRadius:12,objectFit:'cover',border:'2px solid rgba(255,255,255,.3)'}} />
  <h2 style={{margin:0}}>{isZh ? 'FarmSavior 市场实时' : t('FarmSavior Marketplace Live','Marché FarmSavior en direct')}</h2>
  </div>
  <p style={{opacity:.95, fontSize:'1rem', lineHeight:1.6, maxWidth:760}}>{isZh ? '覆盖加纳、尼日利亚和布基纳法索的高需求产品与服务。可自由浏览；联系服务商或使用工具请注册/登录。' : t('High-demand products and services across Ghana, Nigeria, and Burkina Faso. Browse freely. To contact providers or use tools, sign up/sign in.','Produits et services à forte demande au Ghana, au Nigeria et au Burkina Faso. Parcourez librement. Pour contacter les fournisseurs ou utiliser les outils, inscrivez-vous/connectez-vous.')}</p>
@@ -7266,8 +7258,8 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  return <>
  {showSplash && <div className='app-splash'>
  <div className='app-splash-inner'>
- <img src='/assets/farmsavior-logo.jpg' alt='FarmSavior' />
- <p>FarmSavior is loading…</p>
+ <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo' />
+ <p>Whyvo is loading…</p>
  </div>
  </div>}
  {isOffline && <div className='offline-overlay'>
@@ -7539,8 +7531,8 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  <div className='layout'>
  <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
- <img src='/assets/farmsavior-logo.jpg' alt='FarmSavior' style={{width:36,height:36,borderRadius:8,objectFit:'cover'}} />
- <h3 style={{margin:0}}>FarmSavior</h3>
+ <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo' style={{width:36,height:36,borderRadius:8,objectFit:'cover'}} />
+ <h3 style={{margin:0}}>Whyvo</h3>
  </div>
  <div className='sidebar-section-label'>Current section</div>
  {menu.map(m => { const target = m; const isCurrent = active === m; return <button key={m} className={`sideBtn ${isCurrent ? 'on' : ''}`} aria-current={isCurrent ? 'page' : undefined} onClick={() => { if (m === 'aadu') { setAccountAaduIntent(false); setAccountUniversityOpen(true); setPendingScrollTarget(''); setActive('aadu'); setMobileMenuOpen(false); return } setAccountAaduIntent(false); setAccountUniversityOpen(false); setPendingScrollTarget(''); setActive(target); setMobileMenuOpen(false) }}><span>{menuLabel(m)}</span>{isCurrent && <span className='sideBtnMarker'>Current</span>}</button> })}
@@ -7550,7 +7542,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  {!(active === 'games' && (gamesScreen === 'farmstack' || gamesScreen === 'runner')) && <div className='mobileTopBar'>
  <button className='btn btn-dark' type='button' onClick={() => setMobileMenuOpen(v => !v)}>{mobileMenuOpen ? 'Close menu' : 'Menu'}</button>
  <div className='mobileTopBarTitle'>
- <strong>FarmSavior</strong>
+ <strong>Whyvo</strong>
  <span>{menuLabel(active)}</span>
  </div>
  <button type='button' className='notif-badge' onClick={() => setNotificationsOpen(v => !v)} aria-label='Open notifications'>{(() => { const items = (state.notifications || []).filter(n => !localNotificationClears.includes(String(n?.id ?? ''))); const unread = items.filter(n => !(n?.is_read || localNotificationReads[String(n?.id ?? '')])).length; return unread > 99 ? '99+' : String(unread) })()}</button>
@@ -7581,14 +7573,9 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  <option value='en'>English</option><option value='fr'>Français</option><option value='zh'>中文</option>
  </select>
  <div className='app-quick-nav' role='tablist' aria-label='App sections'>
- <button className={`app-quick-btn ${active === 'home' ? 'active' : ''}`} aria-pressed={active === 'home'} onClick={goHomeSafely}>{t('← Main Interface','← Interface principale','← 主界面')}</button>
- <button className={`app-quick-btn ${active === 'ai-disease' ? 'active' : ''}`} aria-pressed={active === 'ai-disease'} onClick={() => setActive('ai-disease')}>{t('AI Disease Analyzer','Analyseur IA des maladies','AI 病害分析')}</button>
- <button className={`app-quick-btn ${active === 'livestock-records' ? 'active' : ''}`} aria-pressed={active === 'livestock-records'} onClick={() => setActive('livestock-records')}>{t('Records','Registres','档案')}</button>
- <button className={`app-quick-btn ${active === 'marketplace' ? 'active' : ''}`} aria-pressed={active === 'marketplace'} onClick={() => setActive('marketplace')}>{t('Marketplace','Marketplace','市场')}</button>
- <button className={`app-quick-btn ${active === 'community' ? 'active' : ''}`} aria-pressed={active === 'community'} onClick={() => setActive('community')}>{t('Community','Communauté','社区')}</button>
- <button className={`app-quick-btn ${active === 'aadu' ? 'active' : ''}`} aria-pressed={active === 'aadu'} type='button' onClick={openAccountAADUSection}>AAD University</button>
-<button className={`app-quick-btn ${active === 'payments' ? 'active' : ''}`} aria-pressed={active === 'payments'} onClick={() => setActive('payments')}>{t('Payments','Paiements','支付')}</button>
-<button className={`app-quick-btn ${active === 'games' ? 'active' : ''}`} aria-pressed={active === 'games'} onClick={() => setActive('games')}>{t('Games','Jeux','游戏')}</button>
+ <button className={`app-quick-btn ${active === 'home' ? 'active' : ''}`} aria-pressed={active === 'home'} onClick={goHomeSafely}>{t('Home','Accueil','首页')}</button>
+ <button className={`app-quick-btn ${active === 'community' ? 'active' : ''}`} aria-pressed={active === 'community'} onClick={() => setActive('community')}>{t('Chats','Discussions','聊天')}</button>
+ <button className={`app-quick-btn ${active === 'world-chat' ? 'active' : ''}`} aria-pressed={active === 'world-chat'} onClick={() => setActive('world-chat')}>{t('World Chat','World Chat','世界聊天')}</button>
  </div>
  </div>
  <div className='app-toolbar-side'>
@@ -7597,154 +7584,67 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  </div>
  </div>}
  {!(active === 'games' && (gamesScreen === 'farmstack' || gamesScreen === 'runner')) && <div className='panel' style={{marginBottom:10,fontSize:'.8rem',color:'#475569'}}>
- {t('Legal/Safety: AI and market outputs are informational. Always verify diagnosis, dosage, legal approvals, and withdrawal periods with local professionals before action.','Juridique/Sécurité : les résultats IA et marché sont informatifs. Vérifiez toujours diagnostic, dosage, autorisations légales et délais d’attente avec des professionnels locaux avant action.')}
+ {t('Whyvo keeps this shell focused on messaging, calls, world chat, and account basics.','Whyvo garde cette interface centrée sur les messages, les appels, le chat mondial et les bases du compte.','Whyvo 当前界面专注于消息、通话、世界聊天和账户基础功能。')}
  </div>}
  {active === 'home' && <section>
  <div className='panel' style={{background:'linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)', border:'1px solid #e2e8f0', boxShadow:'0 14px 32px rgba(15,23,42,.06)'}}>
- <div style={{marginBottom:12}}>
- <div style={{fontSize:'.78rem', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:'#64748b', marginBottom:6}}>My Account</div>
- <h2 style={{margin:'0 0 6px', fontSize:'1.9rem'}}>{t('My Account Home','Accueil du compte','我的账户首页')}</h2>
- <div style={{color:'#475569', lineHeight:1.55}}>Your account landing page for search, recent activity, and quick access across FarmSavior.</div>
- </div>
- <form className='inlineForm' style={{padding:12, borderRadius:18, background:'#f8fafc', border:'1px solid #e2e8f0', boxShadow:'inset 0 1px 0 rgba(255,255,255,.75)'}} onSubmit={(e) => { e.preventDefault(); const q = String(homeQuery || '').trim(); if (!q) return; addRecentSearch(q); setMarketplaceSearchQuery(q); setSelectedMarketplaceListing(null); setPublicSearchCommitted(''); setPublicSearching(false); setActive('marketplace') }}>
- <input className='input' placeholder={t('Search products, livestock, services…','Rechercher produits, élevage, services…')} value={homeQuery} onChange={(e)=>setHomeQuery(e.target.value)} style={{background:'#fff', border:'1px solid #dbe4ee', boxShadow:'0 1px 2px rgba(15,23,42,.04)'}} />
- <button className='btn btn-dark' type='submit' style={{minWidth:120, boxShadow:'0 10px 20px rgba(15,23,42,.16)'}}>{t('Search','Rechercher','搜索')}</button>
- </form>
- </div>
- <div className='two-col'>
- <article className='panel' style={{background:'linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)', border:'1px solid #e2e8f0', boxShadow:'0 10px 24px rgba(15,23,42,.05)'}}>
- <div className='list-row' style={{padding:0, marginBottom:12, alignItems:'flex-end'}}>
+ <div style={{display:'flex', alignItems:'center', gap:14, marginBottom:14}}>
+ <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo' style={{width:64, height:64, borderRadius:16, objectFit:'cover', boxShadow:'0 10px 24px rgba(15,23,42,.12)'}} />
  <div>
- <div style={{fontSize:'.78rem', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:'#64748b'}}>Overview</div>
- <h3 style={{margin:'4px 0 0'}}>{t('Recent Activity','Activité récente','最近活动')}</h3>
+ <div style={{fontSize:'.78rem', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:'#64748b', marginBottom:6}}>Whyvo</div>
+ <h2 style={{margin:'0 0 6px', fontSize:'1.9rem'}}>Messaging and calls</h2>
+ <div style={{color:'#475569', lineHeight:1.55}}>A simple communication app focused on chats, voice calls, video calls, and account basics.</div>
  </div>
  </div>
- <div style={{display:'grid', gap:12}}>
-  <div style={{borderRadius:18, border:'1px solid #e2e8f0', background:'#fff', padding:12}}>
-   <div className='list-row' style={{padding:0, marginBottom:recentActivityOpen.searches ? 10 : 0}}>
-    <strong>Recent Searches</strong>
-    <button type='button' className='btn' onClick={() => setRecentActivityOpen(prev => ({ ...prev, searches: !prev.searches }))}>{recentActivityOpen.searches ? 'Hide' : 'Show'}</button>
-   </div>
-   {recentActivityOpen.searches && <div className='list'>
-    {recentSearches.map((s,i)=><button type='button' className='list-row' style={{borderRadius:14, padding:'14px 16px', background:'#fff', border:'1px solid #e2e8f0', boxShadow:'0 4px 14px rgba(15,23,42,.04)', width:'100%', textAlign:'left', cursor:'pointer'}} key={`s-${i}`} onClick={() => { const q = String(s || '').trim(); if (!q) return; addRecentSearch(q); setMarketplaceSearchQuery(q); setSelectedMarketplaceListing(null); setPublicSearchCommitted(''); setPublicSearching(false); setActive('marketplace') }}><span>{s}</span></button>)}
-    {!recentSearches.length && <div className='list-row'><span>No recent searches yet</span></div>}
-   </div>}
+ <div className='list' style={{display:'grid', gap:12}}>
+  <div className='list-row' style={{borderRadius:16, border:'1px solid #e2e8f0', background:'#fff'}}>
+   <span><strong>Chats</strong><br/><span className='helper-text'>Open direct conversations and message threads.</span></span>
+   <button type='button' className='btn btn-dark' onClick={() => setActive('community')}>Open</button>
   </div>
-  <div style={{borderRadius:18, border:'1px solid #e2e8f0', background:'#fff', padding:12}}>
-   <div className='list-row' style={{padding:0, marginBottom:recentActivityOpen.viewed ? 10 : 0}}>
-    <strong>Recently Viewed</strong>
-    <button type='button' className='btn' onClick={() => setRecentActivityOpen(prev => ({ ...prev, viewed: !prev.viewed }))}>{recentActivityOpen.viewed ? 'Hide' : 'Show'}</button>
-   </div>
-   {recentActivityOpen.viewed && <div className='list'>
-    {recentViewed.map((s,i)=><button type='button' className='list-row' style={{borderRadius:14, padding:'14px 16px', background:'#fff', border:'1px solid #e2e8f0', boxShadow:'0 4px 14px rgba(15,23,42,.04)', width:'100%', textAlign:'left', cursor:'pointer'}} key={`v-${i}`} onClick={() => { const q = String(s || '').trim(); if (!q) return; setMarketplaceSearchQuery(q); setSelectedMarketplaceListing(null); setPublicSearchCommitted(''); setPublicSearching(false); setActive('marketplace') }}><span>{s}</span></button>)}
-    {!recentViewed.length && <div className='list-row'><span>No recently viewed yet</span></div>}
-   </div>}
+  <div className='list-row' style={{borderRadius:16, border:'1px solid #e2e8f0', background:'#fff'}}>
+   <span><strong>World Chat</strong><br/><span className='helper-text'>Open the shared global chat room.</span></span>
+   <button type='button' className='btn btn-dark' onClick={() => setActive('world-chat')}>Open</button>
+  </div>
+  <div className='list-row' style={{borderRadius:16, border:'1px solid #e2e8f0', background:'#fff'}}>
+   <span><strong>Account Settings</strong><br/><span className='helper-text'>Manage your profile and account basics.</span></span>
+   <button type='button' className='btn btn-dark' onClick={goToAccountSettings}>Open</button>
   </div>
  </div>
- </article>
  </div>
 
  <article className='panel' style={{marginTop:10, background:'linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)', border:'1px solid #e2e8f0', boxShadow:'0 10px 24px rgba(15,23,42,.05)'}}>
  <div className='section-header'>
  <div>
- <h3 style={{margin:0}}>{t('🧠 Popular Actions','🧠 Actions populaires','🧠 热门操作')}</h3>
- <div className='helper-text' style={{marginTop:4}}>Quick access to the tools people use most.</div>
- </div>
- <button type='button' className='btn' style={{marginLeft:'auto'}} onClick={() => setAccountPopularActionsOpen(v => !v)}>{accountPopularActionsOpen ? t('Hide','Masquer','隐藏') : t('Show','Afficher','显示')}</button>
- </div>
- {accountPopularActionsOpen && <div className='list'>
- <div className='list-row'><span>{t('Marketplace','Marketplace','市场')}</span><button type='button' className='btn btn-dark' onClick={()=>handleProtectedAction('marketplace', 'Marketplace')}>{t('Open','Ouvrir','打开')}</button></div>
- <div className='list-row'><span>{t('AI Disease Analyzer','Analyseur IA des maladies','AI 病害分析')}</span><button type='button' className='btn btn-dark' onClick={()=>handleProtectedAction('ai-disease', 'AI Disease Analyzer')}>{t('Open','Ouvrir','打开')}</button></div>
- <div className='list-row'><span>{t('Livestock Records','Registres du bétail','牲畜档案')}</span><button type='button' className='btn btn-dark' onClick={()=>handleProtectedAction('livestock-records', 'Livestock Records')}>{t('Open','Ouvrir','打开')}</button></div>
- <div className='list-row'><span>{t('Community','Communauté','社区')}</span><button type='button' className='btn btn-dark' onClick={()=>handleProtectedAction('community', 'FarmSavior Community')}>{t('Open','Ouvrir','打开')}</button></div>
- {isAdminUser ? <div className='list-row'><span>{t('Admin Analytics','Analyses admin','管理员分析')}</span><button type='button' className='btn btn-dark' onClick={async ()=>{ setActive('analytics'); setAdminAnalyticsLoading(true); try { await loadAdminDashboardData() } finally { setAdminAnalyticsLoading(false) } }}>{t('Open','Ouvrir','打开')}</button></div> : null}
- <div className='list-row'><span>{AADU_FULL_NAME} (AADU)</span><button type='button' className='btn' onClick={openPublicAADUSection}>{t('Open','Ouvrir','打开')}</button></div>
- <div className='list-row'><span>{t('Games','Jeux','游戏')}</span><button type='button' className='btn btn-dark' onClick={()=>handleProtectedAction('games', 'Games')}>{t('Open','Ouvrir','打开')}</button></div>
- </div>}
- <p style={{fontSize:'.82rem', color:'#64748b'}}>{t('Browse freely. Posting, contacting providers, and transactions require sign-in.','Vous pouvez parcourir librement. Publier, contacter des prestataires et effectuer des transactions nécessite une connexion.','你可以自由浏览。发布、联系服务商和交易需要登录。')}</p>
- </article>
-
- <article id='account-aadu-section' data-section='aadu' className='panel' style={{marginTop:10, scrollMarginTop:140, background:'linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)', border:'1px solid #e2e8f0', boxShadow:'0 10px 24px rgba(15,23,42,.05)'}}>
- <div className='section-header' style={{marginBottom: accountUniversityOpen ? 6 : 0}}>
- <div>
- <h3 style={{margin:0}}>{AADU_FULL_NAME} (AADU)</h3>
- <div className='helper-text' style={{marginTop:4}}>Explore FarmSavior University for practical livestock training.</div>
- </div>
- <button type='button' className='btn' style={{marginLeft:'auto'}} onClick={() => setAccountUniversityOpen(v => !v)}>{accountUniversityOpen ? t('Hide','Masquer','隐藏') : t('Show','Afficher','显示')}</button>
- </div>
- {accountUniversityOpen && <div className='aadu-public-home' style={{marginTop:0}}>
- <div id='account-aadu-hero' className='aadu-home-hero' style={{alignItems:'flex-start', gap:14, scrollMarginTop:140}}>
- <div style={{flex:'0 0 auto', display:'flex', justifyContent:'center', alignItems:'flex-start', paddingTop:8}}>
- <img src='/assets/aadu-emblem.jpg' alt='AADU emblem' style={{width:88, height:88, display:'block', objectFit:'contain', borderRadius:18, background:'rgba(255,255,255,.14)', padding:6, border:'1px solid rgba(255,255,255,.22)', boxShadow:'0 10px 22px rgba(15,23,42,.16)'}} />
- </div>
- <div className='aadu-home-copy' style={{flex:1, minWidth:0}}>
- <div className='aadu-home-eyebrow'>Flagship learning platform</div>
- <h3 style={{marginBottom:10}}>{AADU_FULL_NAME} (AADU)</h3>
- <p>{AADU_FULL_NAME} (AADU) is FarmSavior’s livestock learning hub, combining Poultry, Sheep, Goat, and Cattle University in one place.</p>
- <p>Practical lessons only: setup, breed improvement, health, and performance.</p>
+ <h3 style={{margin:0}}>Recent conversation activity</h3>
+ <div className='helper-text' style={{marginTop:4}}>A lightweight communication-first home screen.</div>
  </div>
  </div>
- <div className='aadu-home-grid' style={{marginTop:6}}>
- {homeUniversityShowcase.map((school) => (
- <article key={`account-${school.key}`} className='aadu-school-card'>
- <div className='aadu-school-label'>AADU school</div>
- <h4>{school.title}</h4>
- <p>{school.summary}</p>
- <div className='aadu-school-actions'>
- <button type='button' className='btn btn-dark' onClick={() => handleProtectedAction(school.route, school.title)}>{token ? 'Open' : 'Enroll / Open'}</button>
- <button type='button' className='btn' onClick={() => token ? (window.location.href = `/?public=0&go=${school.route}`) : handleProtectedAction(school.route, school.title)}>{token ? 'Go to school' : 'Preview access'}</button>
+ <div className='list' style={{maxHeight:260, overflow:'auto', marginTop:12}}>
+ {(communityFeedItems || []).filter((item) => !String(item?.type || '').includes('listing')).slice(0, 4).map((item)=><div key={`home-feed-${item.id}`} className='panel' style={{padding:8}}>
+ <div style={{fontWeight:700}}>{item?.actor?.full_name || item?.post?.author_full_name || `User ${item?.actor?.user_id || ''}`}{item?.actor?.username ? ` • @${item.actor.username}` : ''}</div>
+ <div style={{fontSize:'.82rem', color:'#64748b'}}>{item.summary || 'Conversation activity'}</div>
+ {item.type === 'community_post' && !!item?.post?.text && <div style={{fontSize:'.9rem'}}>{String(item.post.text).slice(0, 140)}{String(item.post.text).length > 140 ? '…' : ''}</div>}
+ <div style={{fontSize:'.8rem', color:'#64748b'}}>{String(item.created_at || '').replace('T',' ').slice(0,16)}</div>
+ </div>)}
+ {!((communityFeedItems || []).filter((item) => !String(item?.type || '').includes('listing')).length) && <div className='list-row'><span>No conversation activity yet.</span></div>}
  </div>
- </article>
- ))}
- </div>
- </div>}
  </article>
 
  <article className='panel' style={{marginTop:10}}>
- <div className='list-row'>
- <h3 style={{margin:0}}>{t('📸 FarmSavior Community','📸 Communauté FarmSavior','📸 FarmSavior 社区')}</h3>
- <button className='btn btn-dark' onClick={() => setActive('community')}>{t('Open Community','Ouvrir la communauté','打开社区')}</button>
+ <div className='list-row' style={{padding:0, marginBottom:8}}>
+ <h3 style={{margin:0}}>World Chat preview</h3>
+ <div className='helper-text'>A quick look at the latest public conversation.</div>
  </div>
-
- <div style={{position:'relative', marginBottom:10}}>
- {isUserImage(communityProfile.cover_image_url)
- ? <img src={communityProfile.cover_image_url} alt='Community cover' style={{width:'100%',height:120,objectFit:'cover',borderRadius:10,border:'1px solid #e2e8f0'}} />
- : <div style={{width:'100%',height:120,borderRadius:10,border:'1px solid #e2e8f0',background:'#f1f5f9',display:'grid',placeItems:'center',color:'#64748b'}}>Upload your cover photo</div>}
- {isUserImage(communityProfile.avatar_url)
- ? <img src={communityProfile.avatar_url} alt='Community avatar' style={{position:'absolute',left:10,bottom:-22,width:56,height:56,objectFit:'cover',borderRadius:'50%',border:'3px solid #fff',boxShadow:'0 6px 12px rgba(0,0,0,.2)'}} />
- : <div style={{position:'absolute',left:10,bottom:-22,width:56,height:56,borderRadius:'50%',border:'3px solid #fff',background:'#e2e8f0',display:'grid',placeItems:'center',color:'#64748b',fontSize:11}}>No DP</div>}
- <div style={{position:'absolute',left:74,bottom:8,color:'#fff',fontWeight:700,textShadow:'0 1px 2px rgba(0,0,0,.6)'}}>{(communityProfile.full_name || me?.full_name || 'Your Community Profile') + verificationBadge(me) + (communityProfile.username ? ` • @${communityProfile.username}` : '')}</div>
- </div>
-
- <div className='list' style={{maxHeight:260, overflow:'auto', marginTop:26}}>
- {(communityFeedItems || []).filter((item) => !String(item?.type || '').includes('listing')).slice(0, 4).map((item)=><div key={`home-feed-${item.id}`} className='panel' style={{padding:8}}>
- <div style={{fontWeight:700}}>{item?.actor?.full_name || item?.post?.author_full_name || `User ${item?.actor?.user_id || ''}`}{item?.actor?.username ? ` • @${item.actor.username}` : ''}</div>
- <div style={{fontSize:'.82rem', color:'#64748b'}}>{item.summary || 'Community activity'}</div>
- {item.type === 'community_post' && !!item?.post?.text && <div style={{fontSize:'.9rem'}}>{String(item.post.text).slice(0, 140)}{String(item.post.text).length > 140 ? '…' : ''}</div>}
- {item.type === 'profile_update' && <div style={{fontSize:'.88rem'}}>{item?.profile_update?.bio || item?.profile_update?.farm_life || 'Updated profile photos and bio.'}</div>}
- <div style={{fontSize:'.8rem', color:'#64748b'}}>{String(item.created_at || '').replace('T',' ').slice(0,16)}</div>
- </div>)}
- {!((communityFeedItems || []).filter((item) => !String(item?.type || '').includes('listing')).length) && <div className='list-row'><span>No community activity yet.</span></div>}
- </div>
- <div className='list-row' style={{marginTop:10, borderTop:'1px solid #e2e8f0', paddingTop:12}}>
- <span><strong>🌍 {t('World Chat','World Chat','世界聊天')}</strong><br /><span className='helper-text'>Join the global farming conversation.</span></span>
- <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-  <button className='btn' onClick={() => setHomeWorldChatOpen(v => !v)}>{homeWorldChatOpen ? 'Hide' : 'Show'}</button>
-  <button className='btn' onClick={() => setActive('world-chat')}>{t('Open','Ouvrir','打开')}</button>
- </div>
- </div>
- {homeWorldChatOpen && <div className='list' style={{marginTop:10, maxHeight:220, overflow:'auto'}}>
-  {(worldChat || []).slice(0, 3).map((m) => (
-   <div className='list-row' key={`home-world-${m.id}`} style={{alignItems:'flex-start'}}>
-    <div>
-     <div style={{fontWeight:700}}>{m.user_name || `User ${m.user_id}`}{m.user_country ? ` (${m.user_country})` : ''}</div>
-     <div style={{whiteSpace:'pre-wrap'}}>{String(m.text || '').slice(0, 90)}{String(m.text || '').length > 90 ? '…' : ''}</div>
-    </div>
-    <span style={{fontSize:'.75rem',color:'#64748b'}}>{String(m.created_at || '').replace('T',' ').slice(0,16)}</span>
+ {(worldChat || []).slice(0, 3).map((m) => (
+  <div className='list-row' key={`home-world-${m.id}`} style={{alignItems:'flex-start'}}>
+   <div>
+    <div style={{fontWeight:700}}>{m.user_name || `User ${m.user_id}`}{m.user_country ? ` (${m.user_country})` : ''}</div>
+    <div style={{whiteSpace:'pre-wrap'}}>{String(m.text || '').slice(0, 90)}{String(m.text || '').length > 90 ? '…' : ''}</div>
    </div>
-  ))}
-  {!worldChat.length && <div className='list-row'><span>No world chat messages yet.</span></div>}
- </div>}
+   <span style={{fontSize:'.75rem',color:'#64748b'}}>{String(m.created_at || '').replace('T',' ').slice(0,16)}</span>
+  </div>
+ ))}
+ {!worldChat.length && <div className='list-row'><span>No world chat messages yet.</span></div>}
  </article>
 
  <article className='panel' style={{marginTop:10}}>
@@ -7975,7 +7875,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  </article>}
  <article className='panel' style={{marginBottom:12, border:'1px solid #dbeafe', background:'linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)'}}>
  <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-  {['profile','verification','security','notifications','billing'].map(tab => <button key={`acct-tab-${tab}`} type='button' className={`btn ${accountSettingsTab === tab ? 'btn-dark' : ''}`} onClick={()=>setAccountSettingsTab(tab)}>{({profile:'Profile',verification:'Verification',security:'Security',notifications:'Notifications',billing:'Billing/Payouts'})[tab]}</button>)}
+  {['profile','verification','security','notifications'].map(tab => <button key={`acct-tab-${tab}`} type='button' className={`btn ${accountSettingsTab === tab ? 'btn-dark' : ''}`} onClick={()=>setAccountSettingsTab(tab)}>{({profile:'Profile',verification:'Verification',security:'Security',notifications:'Notifications'})[tab]}</button>)}
  </div>
  </article>
  <div className='two-col' style={{marginBottom:12}}>
@@ -8108,10 +8008,8 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  {accountSettingsTab === 'verification' && <article className='panel'>
  <h3>{t('My Verification Status','Mon statut de vérification','我的认证状态')}</h3>
  <div className='list'>
- <div className='list-row'><span>Marketplace ID</span><strong>{me?.marketplace_id || 'Pending backend sync'}</strong></div>
- <div className='list-row'><span>Buyer access</span><strong>{verificationStatusLabel(me?.buyer_verification_status || 'FRICTIONLESS')}</strong></div>
- <div className='list-row'><span>Seller status</span><strong>{sellerStatusLabel(me?.seller_status)}</strong></div>
  <div className='list-row'><span>Identity verification</span><strong>{verificationStatusLabel(me?.identity_verification_status || myIdVerification?.review?.status || 'NOT_SUBMITTED')}{verificationBadge(me)}</strong></div>
+ <div className='list-row'><span>Account status</span><strong>{me?.is_active === false ? 'Limited' : 'Active'}</strong></div>
  <div className='list-row'><span>Full name on file</span><strong>{myIdVerification?.application?.full_name || me?.full_name || '-'}</strong></div>
  <div className='list-row'><span>Email on file</span><strong>{me?.email || accountForm.email || '-'}</strong></div>
  <div className='list-row'><span>ID type</span><strong>{myIdVerification?.application?.id_type || '-'}</strong></div>
@@ -8121,16 +8019,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  <div className='list-row'><span>Risk level</span><strong>{me?.risk_level || 'LOW'}</strong></div>
  {me?.requires_additional_verification ? <div className='list-row'><span>Extra verification</span><strong>Required before restricted actions</strong></div> : null}
  {myIdVerification?.review?.reviewer_note ? <div className='helper-text' style={{marginTop:8}}>Latest reviewer note: {myIdVerification.review.reviewer_note}</div> : null}
- <div className='helper-text' style={{marginTop:8}}>Users keep one account. Everyone gets a Marketplace ID. Buyers can continue using the marketplace normally. Seller activation depends on identity verification and payout readiness.</div>
- </div>
- <div className='panel' style={{marginTop:12, border:'1px solid #e2e8f0', background:'#fff'}}>
- <strong style={{display:'block', marginBottom:8}}>Seller activation checklist</strong>
- <div className='list'>
-  <div className='list-row'><span>Marketplace profile</span><strong>{me?.marketplace_id ? 'Ready' : (me?.identity_verification_status === 'APPROVED' ? 'Verified, waiting for marketplace ID sync' : 'Pending')}</strong></div>
-  <div className='list-row'><span>Identity review</span><strong>{verificationStatusLabel(me?.identity_verification_status || myIdVerification?.review?.status || 'NOT_SUBMITTED')}</strong></div>
-  <div className='list-row'><span>Payout setup</span><strong>{String(me?.seller_status || '').toUpperCase() === 'ACTIVE' || String(me?.identity_verification_status || '').toUpperCase() === 'APPROVED' ? 'Ready for payouts' : payoutVerificationLabel(me?.payout_verification_status || me?.payout_status || (me?.recipient_code || me?.is_verified ? 'VERIFIED' : 'PENDING'), !!(me?.recipient_code || me?.is_verified))}</strong></div>
-  <div className='list-row'><span>Payout hold</span><strong>{String(me?.seller_status || '').toUpperCase() === 'ACTIVE' ? 'Funds release 24 hours after buyer confirms receipt.' : (me?.payout_hold_reason || 'Funds release 24 hours after buyer confirms receipt.')}</strong></div>
- </div>
+ <div className='helper-text' style={{marginTop:8}}>Use this page to keep your identity and account details current for messaging and call access.</div>
  </div>
  <form className='list' onSubmit={async e => {
  e.preventDefault()
@@ -8180,7 +8069,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
   <h3>Notification Preferences</h3>
   <div className='helper-text' style={{marginBottom:10}}>Control which alerts you get and where they are delivered.</div>
   <div className='list'>
-   {[['calls','Call alerts','Incoming and missed call alerts'],['orders','Order updates','New orders, status updates, and receipts'],['verification','Verification updates','Identity verification decisions and review updates']].map(([key,label,desc]) => <div key={`notif-pref-${key}`} className='list-row' style={{border:'1px solid #e2e8f0', borderRadius:14, background:'#fff'}}>
+   {[['calls','Call alerts','Incoming and missed call alerts'],['messages','Message alerts','New chat activity and replies'],['verification','Verification updates','Identity verification decisions and review updates']].map(([key,label,desc]) => <div key={`notif-pref-${key}`} className='list-row' style={{border:'1px solid #e2e8f0', borderRadius:14, background:'#fff'}}>
     <span><strong>{label}</strong><br/><small>{desc}</small></span>
     <button type='button' className={`btn ${notificationPrefs[key] ? 'btn-dark' : ''}`} onClick={()=>setNotificationPrefs(prev => ({ ...(prev || {}), [key]: !prev?.[key] }))}>{notificationPrefs[key] ? 'Enabled' : 'Disabled'}</button>
    </div>)}
@@ -11552,7 +11441,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  {active === 'ai-disease' && <section className='disease-shell'>
  {diseaseAnalyzing && <div style={{position:'fixed', inset:0, zIndex:520, background:'rgba(2,6,23,.72)', display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
   <div style={{width:'min(420px, 100%)', background:'linear-gradient(135deg,#020617 0%,#0f172a 50%,#1d4ed8 100%)', border:'1px solid rgba(103,232,249,.38)', borderRadius:18, padding:'24px 20px', textAlign:'center', color:'#e2e8f0', boxShadow:'0 24px 60px rgba(2,6,23,.6)'}}>
-   <img src='/assets/farmsavior-icon-only.png' alt='FarmSavior' style={{width:76, height:76, borderRadius:14, margin:'0 auto 12px', display:'block'}} />
+   <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo' style={{width:76, height:76, borderRadius:14, margin:'0 auto 12px', display:'block'}} />
    <div style={{fontSize:'.72rem', letterSpacing:'.1em', textTransform:'uppercase', color:'#67e8f9', fontWeight:800}}>FarmSavior Medical AI</div>
    <h4 style={{margin:'8px 0 6px', color:'#fff'}}>Analyzing Case…</h4>
    <p style={{margin:0, color:'#cbd5e1'}}>Scanning clinical patterns, comparing disease signatures, and generating guided treatment pathways.</p>
@@ -11672,7 +11561,7 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  </div>
  </div>
  <div className='disease-results-column'>
- {diseaseAnalyzing && <div className='panel disease-panel disease-status-card' style={{background:'linear-gradient(135deg,#0b1220 0%,#0f172a 45%,#1e293b 100%)', color:'#e2e8f0', border:'1px solid rgba(103,232,249,.35)', boxShadow:'0 20px 45px rgba(2,6,23,.45)'}}><div style={{display:'flex', alignItems:'center', gap:12}}><img src='/assets/farmsavior-icon-only.png' alt='FarmSavior' style={{width:44, height:44, borderRadius:10, border:'1px solid rgba(103,232,249,.35)'}} /><div><div style={{fontSize:'.72rem', letterSpacing:'.08em', textTransform:'uppercase', color:'#67e8f9', fontWeight:800}}>AI Disease Analyzer</div><strong style={{color:'#fff'}}>Analyzing case…</strong></div></div><div className='helper-text' style={{color:'#cbd5e1', marginTop:8}}>FarmSavior is scanning symptoms + image patterns and preparing differential diagnosis and treatment guidance.</div><div style={{marginTop:10, display:'inline-block', padding:'6px 10px', borderRadius:999, border:'1px solid rgba(103,232,249,.4)', color:'#67e8f9'}}>Medical scan in progress</div></div>}
+ {diseaseAnalyzing && <div className='panel disease-panel disease-status-card' style={{background:'linear-gradient(135deg,#0b1220 0%,#0f172a 45%,#1e293b 100%)', color:'#e2e8f0', border:'1px solid rgba(103,232,249,.35)', boxShadow:'0 20px 45px rgba(2,6,23,.45)'}}><div style={{display:'flex', alignItems:'center', gap:12}}><img src='/assets/whyvo-app-icon.jpg' alt='Whyvo' style={{width:44, height:44, borderRadius:10, border:'1px solid rgba(103,232,249,.35)'}} /><div><div style={{fontSize:'.72rem', letterSpacing:'.08em', textTransform:'uppercase', color:'#67e8f9', fontWeight:800}}>AI Disease Analyzer</div><strong style={{color:'#fff'}}>Analyzing case…</strong></div></div><div className='helper-text' style={{color:'#cbd5e1', marginTop:8}}>FarmSavior is scanning symptoms + image patterns and preparing differential diagnosis and treatment guidance.</div><div style={{marginTop:10, display:'inline-block', padding:'6px 10px', borderRadius:999, border:'1px solid rgba(103,232,249,.4)', color:'#67e8f9'}}>Medical scan in progress</div></div>}
  {!diseaseAnalyzing && !diseaseResult && <div className='panel disease-panel disease-empty-card'>
  <div className='disease-empty-icon'>🩺</div>
  <strong>No analysis yet</strong>

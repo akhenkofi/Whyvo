@@ -1,5 +1,5 @@
 const CACHE_NAME = 'farmsavior-pwa-v11';
-const URLS_TO_CACHE = ['/manifest.webmanifest', '/assets/farmsavior-logo.jpg'];
+const URLS_TO_CACHE = ['/manifest.webmanifest', '/assets/whyvo-app-icon.jpg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE)));
@@ -58,8 +58,8 @@ self.addEventListener('push', (event) => {
       renotify: true,
       requireInteraction: true,
       data: { url: callUrl, callId: data.callId || '', mode },
-      icon: '/assets/farmsavior-logo.jpg',
-      badge: '/assets/farmsavior-logo.jpg'
+      icon: '/assets/whyvo-app-icon.jpg',
+      badge: '/assets/whyvo-app-icon.jpg'
     })
   );
 });
