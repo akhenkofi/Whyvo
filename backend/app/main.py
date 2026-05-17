@@ -89,7 +89,7 @@ def ensure_runtime_columns():
                     pass
                 conn.execute(text("UPDATE users SET marketplace_id = ('MKT-' || substr('00000000' || CAST(id AS TEXT), -8, 8)) WHERE marketplace_id IS NULL OR marketplace_id = ''"))
                 conn.execute(text("UPDATE users SET buyer_verification_status = 'FRICTIONLESS' WHERE buyer_verification_status IS NULL OR buyer_verification_status = ''"))
-                conn.execute(text("UPDATE users SET seller_status = CASE WHEN lower(coalesce(role, '')) IN ('farmer','transporter','equipmentprovider','storageprovider') THEN 'PENDING' ELSE 'LIMITED' END WHERE seller_status IS NULL OR seller_status = ''"))
+                conn.execute(text("UPDATE users SET seller_status = CASE WHEN lower(CAST(role AS TEXT)) IN ('farmer','transporter','equipmentprovider','storageprovider') THEN 'PENDING' ELSE 'LIMITED' END WHERE seller_status IS NULL OR seller_status = ''"))
                 conn.execute(text("UPDATE users SET risk_score = 0 WHERE risk_score IS NULL"))
                 conn.execute(text("UPDATE users SET risk_level = 'LOW' WHERE risk_level IS NULL OR risk_level = ''"))
                 conn.execute(text("UPDATE users SET risk_flags = '[]' WHERE risk_flags IS NULL OR risk_flags = ''"))
