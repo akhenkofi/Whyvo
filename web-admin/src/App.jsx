@@ -2861,12 +2861,13 @@ function AppInner() {
  const mappedGo = (explicitGo === 'poultry-academy' ? 'poultry-university' : (explicitGo === 'sheep-academy' ? 'sheep-university' : (explicitGo === 'goat-academy' ? 'goat-university' : (explicitGo === 'cattle-academy' ? 'cattle-university' : explicitGo))))
  const allowedPrimarySections = new Set(['home', 'community', 'world-chat', 'onboarding', 'admin'])
  const stickySections = new Set(['community','world-chat'])
+ const defaultPrimarySection = 'community'
  const sanitizePrimarySection = (section) => {
   const value = String(section || '').trim()
   if (allowedPrimarySections.has(value)) return value
-  return 'home'
+  return defaultPrimarySection
  }
- const initialSection = sanitizePrimarySection(mappedGo && mappedGo !== 'onboarding' ? mappedGo : 'home')
+ const initialSection = sanitizePrimarySection(mappedGo && mappedGo !== 'onboarding' ? mappedGo : defaultPrimarySection)
  const [token, setToken] = useState(localStorage.getItem('farmsavior_token'))
  const [authMode, setAuthMode] = useState('login')
  const [portalType, setPortalType] = useState('main')
@@ -3032,10 +3033,10 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  const [communityFeedMode, setCommunityFeedMode] = useState('for-you')
  const goHomeSafely = () => {
   if (active === 'onboarding') {
-   const ok = window.confirm('Leave My Account Settings and return to Main Interface?')
+   const ok = window.confirm('Leave My Account Settings and return to Chats?')
    if (!ok) return
   }
-  setActive('home')
+  setActive('community')
  }
  const [communityFeedItems, setCommunityFeedItems] = useState([])
  const [communityUserSearch, setCommunityUserSearch] = useState('')
@@ -7573,9 +7574,9 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  <option value='en'>English</option><option value='fr'>Français</option><option value='zh'>中文</option>
  </select>
  <div className='app-quick-nav' role='tablist' aria-label='App sections'>
- <button className={`app-quick-btn ${active === 'home' ? 'active' : ''}`} aria-pressed={active === 'home'} onClick={goHomeSafely}>{t('Home','Accueil','首页')}</button>
+ <button className={`app-quick-btn ${active === 'home' ? 'active' : ''}`} aria-pressed={active === 'home'} onClick={() => setActive('home')}>{t('Updates','Accueil','更新')}</button>
+ <button className={`app-quick-btn ${active === 'world-chat' ? 'active' : ''}`} aria-pressed={active === 'world-chat'} onClick={() => setActive('world-chat')}>{t('Calls','Appels','通话')}</button>
  <button className={`app-quick-btn ${active === 'community' ? 'active' : ''}`} aria-pressed={active === 'community'} onClick={() => setActive('community')}>{t('Chats','Discussions','聊天')}</button>
- <button className={`app-quick-btn ${active === 'world-chat' ? 'active' : ''}`} aria-pressed={active === 'world-chat'} onClick={() => setActive('world-chat')}>{t('World Chat','World Chat','世界聊天')}</button>
  </div>
  </div>
  <div className='app-toolbar-side'>
@@ -7873,13 +7874,37 @@ const [accountPopularActionsOpen, setAccountPopularActionsOpen] = useState(true)
  </div>
  </div>
  </article>}
- <article className='panel' style={{marginBottom:12, border:'1px solid #dbeafe', background:'linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)'}}>
- <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-  {['profile','verification','security','notifications'].map(tab => <button key={`acct-tab-${tab}`} type='button' className={`btn ${accountSettingsTab === tab ? 'btn-dark' : ''}`} onClick={()=>setAccountSettingsTab(tab)}>{({profile:'Profile',verification:'Verification',security:'Security',notifications:'Notifications'})[tab]}</button>)}
+ <div style={{marginBottom:18}}>
+  <h2 style={{margin:'0 0 14px', fontSize:'2.15rem', lineHeight:1.05, fontWeight:800}}>Settings</h2>
+  <div style={{marginBottom:14}}>
+   <input className='input' placeholder='Search' style={{background:'#f3f4f6', border:'1px solid #eceff3', borderRadius:16, height:50, boxShadow:'none'}} />
+  </div>
+  <div className='panel' style={{padding:0, overflow:'hidden', border:'1px solid #eceff3', background:'#fff', borderRadius:22, boxShadow:'0 8px 24px rgba(15,23,42,.05)'}}>
+   <div style={{display:'flex', alignItems:'center', gap:14, padding:'16px 18px'}}>
+    <img src='/assets/whyvo-app-icon.jpg' alt='Whyvo profile' style={{width:58, height:58, borderRadius:'50%', objectFit:'cover'}} />
+    <div style={{flex:1, minWidth:0}}>
+     <div style={{fontSize:'1.35rem', fontWeight:700, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{me?.full_name || 'Whyvo User'}</div>
+     <div className='helper-text' style={{marginTop:4}}>{me?.phone || me?.email || 'Profile and account'}</div>
+    </div>
+    <button type='button' className='btn' onClick={() => setAccountSettingsTab('profile')}>Open</button>
+   </div>
+  </div>
  </div>
+ <div className='two-col' style={{marginBottom:12, alignItems:'start'}}>
+ <article className='panel' style={{padding:0, overflow:'hidden', border:'1px solid #eceff3', background:'#fff', borderRadius:22, boxShadow:'0 8px 24px rgba(15,23,42,.05)'}}>
+ <div className='list-row' style={{padding:'16px 18px', cursor:'pointer'}} onClick={() => setAccountSettingsTab('profile')}><span><strong>Account</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
+ <div className='list-row' style={{padding:'16px 18px', cursor:'pointer'}} onClick={() => setAccountSettingsTab('verification')}><span><strong>Privacy</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
+ <div className='list-row' style={{padding:'16px 18px', cursor:'pointer'}} onClick={() => setAccountSettingsTab('security')}><span><strong>Chats</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
+ <div className='list-row' style={{padding:'16px 18px', cursor:'pointer'}} onClick={() => setAccountSettingsTab('notifications')}><span><strong>Notifications</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
+ <div className='list-row' style={{padding:'16px 18px', cursor:'pointer'}} onClick={() => setAccountSettingsTab('profile')}><span><strong>Storage and data</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
  </article>
- <div className='two-col' style={{marginBottom:12}}>
- {(accountSettingsTab === 'profile' || accountSettingsTab === 'security') && <article className='panel'>
+
+ <article className='panel' style={{padding:0, overflow:'hidden', border:'1px solid #eceff3', background:'#fff', borderRadius:22, boxShadow:'0 8px 24px rgba(15,23,42,.05)'}}>
+ <div className='list-row' style={{padding:'16px 18px'}}><span><strong>Help and feedback</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
+ <div className='list-row' style={{padding:'16px 18px'}}><span><strong>Invite a friend</strong></span><span style={{color:'#9ca3af', fontSize:'1.2rem'}}>›</span></div>
+ </article>
+
+ {(accountSettingsTab === 'profile' || accountSettingsTab === 'security') && <article className='panel' style={{marginTop:12}}>
  <h3>{t('My Account Settings','Paramètres du compte','账户设置')}</h3>
  <form className='list' onSubmit={async e => {
  e.preventDefault()
