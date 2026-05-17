@@ -20,6 +20,12 @@ def test_ghana_sender_helper_uses_registered_sender(monkeypatch):
     assert routes._twilio_from_for_destination('+15550000001') == '+17028422279'
 
 
+def test_ghana_sender_helper_falls_back_to_twilio_number_when_no_sender_id(monkeypatch):
+    monkeypatch.setattr(settings, 'TWILIO_FROM_NUMBER', '+17028422279')
+    monkeypatch.setattr(settings, 'GHANA_TWILIO_SENDER_ID', '')
+    assert routes._twilio_from_for_destination('+233536761831') == '+17028422279'
+
+
 def test_send_otp_to_ghana_uses_registered_sender(monkeypatch):
     monkeypatch.setattr(settings, 'TWILIO_ACCOUNT_SID', 'AC_TEST')
     monkeypatch.setattr(settings, 'TWILIO_AUTH_TOKEN', 'token')

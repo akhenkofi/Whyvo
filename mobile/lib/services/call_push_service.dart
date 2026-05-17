@@ -45,7 +45,13 @@ class CallPushService {
 
   static Future<void> _registerToken(String token, {required String platform}) async {
     try {
-      const baseUrl = String.fromEnvironment('FARMSAVIOR_API_BASE_URL', defaultValue: 'https://api.farmsavior.com/api/v1');
+      const baseUrl = String.fromEnvironment(
+        'WHYVO_API_BASE_URL',
+        defaultValue: String.fromEnvironment(
+          'FARMSAVIOR_API_BASE_URL',
+          defaultValue: 'http://127.0.0.1:8000/api/v1',
+        ),
+      );
       await http.post(
         Uri.parse('$baseUrl/messaging/device-token'),
         headers: {'Content-Type': 'application/json'},

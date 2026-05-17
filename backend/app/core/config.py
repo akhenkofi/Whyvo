@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str = ''
     TWILIO_AUTH_TOKEN: str = ''
     TWILIO_FROM_NUMBER: str = ''
-    GHANA_TWILIO_SENDER_ID: str = 'SheepGhana'
+    GHANA_TWILIO_SENDER_ID: str = ''
     OWNER_PAYOUT_MOMO_GH: str = ''
     OWNER_PAYOUT_US_BANK: str = ''
 

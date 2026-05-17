@@ -1844,8 +1844,8 @@ def _enforce_livestock_record_limit(user_id: Optional[int], db: Session):
 def _twilio_from_for_destination(destination: str) -> str:
     dest = str(destination or '').strip()
     sender = str(settings.TWILIO_FROM_NUMBER or '').strip()
-    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or 'SheepGhana').strip()
-    if dest.startswith('+233'):
+    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or '').strip()
+    if dest.startswith('+233') and gh_sender:
         return gh_sender
     return sender
 
@@ -1853,8 +1853,8 @@ def _twilio_from_for_destination(destination: str) -> str:
 def _validate_twilio_sender_for_destination(destination: str) -> Optional[str]:
     dest = str(destination or '').strip()
     sender = _twilio_from_for_destination(dest)
-    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or 'SheepGhana').strip()
-    if dest.startswith('+233') and sender != gh_sender:
+    gh_sender = str(settings.GHANA_TWILIO_SENDER_ID or '').strip()
+    if dest.startswith('+233') and gh_sender and sender != gh_sender:
         return f"Ghana SMS requires sender ID {gh_sender}"
     if not sender:
         return 'Twilio sender is not configured'
@@ -1862,11 +1862,12 @@ def _validate_twilio_sender_for_destination(destination: str) -> Optional[str]:
 
 
 def _send_otp(destination: str, method: str, code: str):
-    message = f"Your FarmSavior OTP is {code}. It expires soon."
+    app_name = str(getattr(settings, 'APP_NAME', 'Whyvo') or 'Whyvo').replace(' API', '').strip() or 'Whyvo'
+    message = f"Your {app_name} OTP is {code}. It expires soon."
     if method == 'email' and settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASS:
         try:
             msg = EmailMessage()
-            msg['Subject'] = 'FarmSavior verification code'
+            msg['Subject'] = f'{app_name} verification code'
             msg['To'] = destination
             msg.set_content(message)
             smtp_host = str(settings.SMTP_HOST or '').strip().strip('"').strip("'")

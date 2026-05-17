@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-BASE_DIR = Path(__file__).resolve().parents[3]  # FarmSavior/
+BASE_DIR = Path(__file__).resolve().parents[3]  # Whyvo/
 DATA_DIR = BASE_DIR / 'data'
 
 
